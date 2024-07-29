@@ -34,6 +34,13 @@ services:
     networks:
       - kafka-network
 
+  api_gateway:
+    container_name: api_gateway
+    build:
+      context: api-gateway
+      network: host
+    networks:
+      - kafka-network
 
 networks:
   kafka-network:
