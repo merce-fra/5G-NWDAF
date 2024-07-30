@@ -37,8 +37,9 @@ python -m build
 cd ..
 
 # Copy the packages
-cp 3gpp-apis/output/dist/*.whl .packages/
-cp libcommon/dist/*.whl .packages/
+cp -rf 3gpp-apis/output/dist/*.whl .packages/
+cp -rf libcommon/dist/*.whl .packages/
+chmod -R 777 .packages/
 
 
 # Run the local PyPi server

@@ -34,11 +34,34 @@ services:
     networks:
       - kafka-network
 
-  api_gateway:
-    container_name: api_gateway
+  kafka-create-topics:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - kafka
+    command: [ "bash", "./create-topics.sh" ]
+    working_dir: /scripts
+    volumes:
+      - ./scripts:/scripts
+    networks:
+      - kafka-network
+
+  api-gateway:
+    container_name: api-gateway
     build:
       context: api-gateway
       network: host
+    depends_on:
+      kafka-create-topics:
+        condition: service_completed_successfully
+    ports:
+      - "5000:5000"
+    restart: on-failure
+    healthcheck:
+      test: curl --silent --fail http://localhost:5000/health || exit 1
+      interval: 10s
+      retries: 5
+      start_period: 5s
+      timeout: 10s
     networks:
       - kafka-network
 
