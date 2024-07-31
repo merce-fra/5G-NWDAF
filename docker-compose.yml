@@ -65,6 +65,18 @@ services:
     networks:
       - kafka-network
 
+  basic-anlf:
+    container_name: basic-anlf
+    build:
+      context: anlf
+      network: host
+    depends_on:
+      kafka-create-topics:
+        condition: service_completed_successfully
+    restart: on-failure
+    networks:
+      - kafka-network
+
 networks:
   kafka-network:
     driver: bridge
