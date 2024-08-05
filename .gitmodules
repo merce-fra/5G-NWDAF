@@ -1,9 +1,3 @@
-[submodule "3gpp-apis"]
-	path = 3gpp-apis
-	url = git@merce-gitlab.fr-merce.mee.com:artur/nwdaf-3gpp-apis.git
-[submodule "libcommon"]
-	path = libcommon
-	url = git@merce-gitlab.fr-merce.mee.com:artur/nwdaf-libcommon.git
 [submodule "api-gateway"]
 	path = api-gateway
 	url = git@merce-gitlab.fr-merce.mee.com:artur/nwdaf-api-gateway.git

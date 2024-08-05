@@ -50,6 +50,9 @@ services:
     build:
       context: api-gateway
       network: host
+      args:
+        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
+        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
     depends_on:
       kafka-create-topics:
         condition: service_completed_successfully
@@ -70,6 +73,9 @@ services:
     build:
       context: anlf
       network: host
+      args:
+        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
+        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
     depends_on:
       kafka-create-topics:
         condition: service_completed_successfully
