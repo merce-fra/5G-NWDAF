@@ -3,6 +3,15 @@
 This is the central repository for the microservices _NWDAF_. It is based on the _submodules_ mechanisms provided by
 _git_.
 
+## Table of Contents
+
+- [Description](#description)
+- [Pre-requisites](#pre-requisites)
+- [Clone](#clone)
+- [Configure](#configure)
+- [Build](#build)
+- [Deploy](#deploy)
+
 ## Description
 
 The repository is composed of several submodules:
