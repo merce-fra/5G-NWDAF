@@ -46,6 +46,23 @@ services:
     networks:
       - kafka-network
 
+  dummy-client:
+    container_name: dummy-client
+    build:
+      context: dummy-client
+      network: host
+      args:
+        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
+        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    ports:
+      - "8181:8181"
+    restart: on-failure
+    networks:
+      - kafka-network
+
   api-gateway:
     container_name: api-gateway
     build:
