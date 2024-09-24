@@ -7,7 +7,7 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-      ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: 'WARN'
+      ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: 'ERROR'
     networks:
       - kafka-network
 
@@ -25,8 +25,8 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
       KAFKA_BROKER_ID: 1
-      KAFKA_LOG4J_ROOT_LOGLEVEL: 'WARN'
-      KAFKA_LOG4J_LOGGERS: 'kafka=WARN,kafka.controller=WARN,kafka.log.LogCleaner=WARN,state.change.logger=WARN,kafka.producer.async.DefaultEventHandler=WARN'
+      KAFKA_LOG4J_ROOT_LOGLEVEL: 'ERROR'
+      KAFKA_LOG4J_LOGGERS: 'kafka=ERROR,kafka.controller=ERROR,kafka.log.LogCleaner=ERROR,state.change.logger=ERROR,kafka.producer.async.DefaultEventHandler=ERROR'
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     networks:
@@ -61,22 +61,22 @@ services:
     networks:
       - kafka-network
 
-  smf:
-    container_name: smf
-    build:
-      context: smf
-      network: host
-      args:
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
-    depends_on:
-      kafka-init:
-        condition: service_completed_successfully
-    ports:
-      - "10001:10001"
-    restart: on-failure
-    networks:
-      - kafka-network
+#  smf:
+#    container_name: smf
+#    build:
+#      context: smf
+#      network: host
+#      args:
+#        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
+#        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+#    depends_on:
+#      kafka-init:
+#        condition: service_completed_successfully
+#    ports:
+#      - "10001:10001"
+#    restart: on-failure
+#    networks:
+#      - kafka-network
 
   api-gateway:
     container_name: api-gateway
@@ -95,10 +95,40 @@ services:
     networks:
       - kafka-network
 
-  basic-anlf:
-    container_name: basic-anlf
+#  basic-anlf:
+#    container_name: basic-anlf
+#    build:
+#      context: anlf
+#      network: host
+#      args:
+#        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
+#        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+#    depends_on:
+#      kafka-init:
+#        condition: service_completed_successfully
+#    restart: on-failure
+#    networks:
+#      - kafka-network
+
+  throughput-anlf:
+    container_name: throughput-anlf
     build:
-      context: anlf
+      context: throughput_anlf
+      network: host
+      args:
+      - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
+      - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: on-failure
+    networks:
+      - kafka-network
+
+  gmlc:
+    container_name: gmlc
+    build:
+      context: gmlc
       network: host
       args:
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
@@ -106,9 +136,13 @@ services:
     depends_on:
       kafka-init:
         condition: service_completed_successfully
+    ports:
+      - "10006:10006"
     restart: on-failure
     networks:
       - kafka-network
+
+
 
 networks:
   kafka-network:

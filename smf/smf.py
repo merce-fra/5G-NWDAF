@@ -31,7 +31,7 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-service_name = "smf"
+service_name = "gmlc"
 port = 10001
 subscriptions: dict[str, NsmfEventExposure] = dict()
 

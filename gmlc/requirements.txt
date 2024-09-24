@@ -1,0 +1,4 @@
+fastapi
+uvicorn
+nwdaf-api
+httpx
