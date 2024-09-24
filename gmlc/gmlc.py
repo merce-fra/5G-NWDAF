@@ -118,7 +118,7 @@ async def notify(subscription_id: str, input_data: InputData):
     horizontal_velocity = HorizontalVelocity(h_speed=speed, bearing=compass_direction)
     velocity_estimate = VelocityEstimate(anyof_schema_1_validator=horizontal_velocity)
 
-    notification = EventNotifyDataExt(ldr_reference=subscription_id,
+    notification = EventNotifyDataExt(ldr_reference=input_data.ldr_reference,
                                       event_notify_data_type=EventNotifyDataType.PERIODIC,
                                       supi=input_data.supi,
                                       timestamp_of_location_estimate=datetime.now(),
