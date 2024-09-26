@@ -17,6 +17,16 @@ from nwdaf_libcommon.ControlOperationType import ControlOperationType
 
 
 def get_gmlc_subscription_payload(sub_id: str, supi: str) -> InputData:
+    """
+    Creates a GMLC subscription payload.
+
+    Args:
+        sub_id (str): The subscription ID.
+        supi (str): The SUPI (Subscriber Permanent Identifier).
+
+    Returns:
+        InputData: The GMLC subscription payload.
+    """
     return InputData(supi=supi,
                      ldr_reference=sub_id,
                      external_client_type=ExternalClientType.VALUE_ADDED_SERVICES,
@@ -27,6 +37,16 @@ def get_gmlc_subscription_payload(sub_id: str, supi: str) -> InputData:
 
 
 def get_analytics_notification_payload(supi: str, throughput: float) -> EventNotification:
+    """
+    Creates an analytics notification payload.
+
+    Args:
+        supi (str): The SUPI (Subscriber Permanent Identifier).
+        throughput (float): The predicted throughput.
+
+    Returns:
+        EventNotification: The analytics notification payload.
+    """
     predicted_throughput_info = PredictedThroughputInfo(supi=supi,
                                                         throughput=f"{abs(throughput):.2f} Kbps")
     return EventNotification(event=NwdafEvent.UE_LOC_THROUGHPUT,
@@ -34,9 +54,14 @@ def get_analytics_notification_payload(supi: str, throughput: float) -> EventNot
 
 
 class ThroughputAnlfService(AnlfService):
-    model_id: str
+    """
+    A service for handling UE_LOC_THROUGHPUT analytics.
+    """
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """
+        Initializes the service.
+        """
         super().__init__("throughput-anlf",
                          "kafka:19092",
                          {NwdafEvent.UE_LOC_THROUGHPUT},
@@ -47,7 +72,14 @@ class ThroughputAnlfService(AnlfService):
 
         self.set_event_exposure_data_callback(NFType.GMLC, EventNotifyDataType.PERIODIC, self.on_ue_location_received)
 
-    def on_subscription_created(self, sub_id: str, sub: NnwdafEventsSubscription):
+    def on_subscription_created(self, sub_id: str, sub: NnwdafEventsSubscription) -> None:
+        """
+        Handles the creation of a subscription.
+
+        Args:
+            sub_id (str): The subscription ID.
+            sub (NnwdafEventsSubscription): The subscription.
+        """
         for event_sub in sub.event_subscriptions:
             if event_sub.event != NwdafEvent.UE_LOC_THROUGHPUT:
                 continue
@@ -57,7 +89,13 @@ class ThroughputAnlfService(AnlfService):
                 self.queue_event_exposure_subscription(NFType.GMLC, EventNotifyDataType.PERIODIC,
                                                        get_gmlc_subscription_payload(sub_id, supi))
 
-    def on_ue_location_received(self, ue_location_notification: EventNotifyDataExt):
+    def on_ue_location_received(self, ue_location_notification: EventNotifyDataExt) -> None:
+        """
+        Handles the reception of a UE location notification.
+
+        Args:
+            ue_location_notification (EventNotifyDataExt): The UE location notification.
+        """
         location_estimate = ue_location_notification.location_estimate.anyof_schema_1_validator
         velocity_estimate = ue_location_notification.velocity_estimate.anyof_schema_1_validator
 
