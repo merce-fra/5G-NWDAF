@@ -109,6 +109,7 @@ def main():
         logging.error(f"Kafka topics initialization failed: {e}")
         exit_code = 1
 
+    logging.info("Exiting...")
     sys.exit(exit_code)
 
 

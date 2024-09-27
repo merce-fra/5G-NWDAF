@@ -32,8 +32,8 @@ services:
     networks:
       - kafka-network
 
-  kafka-init:
-    container_name: kafka-init
+  kafka-topics-init:
+    container_name: kafka-topics-init
     build:
       context: .
       network: host
@@ -41,8 +41,8 @@ services:
         - BASE_IMAGE=python:3.11-slim-bullseye
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
-        - SERVICE_DIR=kafka-init
-        - SCRIPT_NAME=create_topics.py
+        - SERVICE_DIR=services/kafka-topics-init
+        - SCRIPT_NAME=kafka-topics-init.py
     environment:
       LOG_LEVEL: 'INFO'
     depends_on:
@@ -51,7 +51,7 @@ services:
       - kafka-network
 
   dummy-client:
-    container_name: dummy-client
+    container_name: notification-client
     build:
       context: .
       network: host
@@ -59,12 +59,12 @@ services:
         - BASE_IMAGE=python:3.11-slim-bullseye
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
-        - SERVICE_DIR=dummy-client
-        - SCRIPT_NAME=dummy-client.py
+        - SERVICE_DIR=services/notification-client
+        - SCRIPT_NAME=notification-client.py
     environment:
       LOG_LEVEL: 'INFO'
     depends_on:
-      kafka-init:
+      kafka-topics-init:
         condition: service_completed_successfully
     ports:
       - "8181:8181"
@@ -81,12 +81,12 @@ services:
   #        - BASE_IMAGE=python:3.11-slim-bullseye
   #        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
   #        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
-  #        - SERVICE_DIR=nf-stubs/smf
+  #        - SERVICE_DIR=services/nf-stubs/smf
   #        - SCRIPT_NAME=smf.py
   #    environment:
   #      LOG_LEVEL: 'INFO'
   #    depends_on:
-  #      kafka-init:
+  #      kafka-topics-init:
   #        condition: service_completed_successfully
   #    ports:
   #      - "10001:10001"
@@ -103,38 +103,18 @@ services:
         - BASE_IMAGE=tensorflow/tensorflow:2.17.0
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
-        - SERVICE_DIR=api-gateway
+        - SERVICE_DIR=services/api-gateway
         - SCRIPT_NAME=main.py
     environment:
       LOG_LEVEL: 'INFO'
     depends_on:
-      kafka-init:
+      kafka-topics-init:
         condition: service_completed_successfully
     ports:
       - "5000:5000"
     restart: on-failure
     networks:
       - kafka-network
-
-  #  basic-anlf:
-  #    container_name: basic-anlf
-  #    build:
-  #      context: .
-  #      network: host
-  #      args:
-  #        - BASE_IMAGE=python:3.11-slim-bullseye
-  #        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-  #        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
-  #        - SERVICE_DIR=anlf
-  #        - SCRIPT_NAME=main.py
-  #    environment:
-  #      LOG_LEVEL: 'INFO'
-  #    depends_on:
-  #      kafka-init:
-  #        condition: service_completed_successfully
-  #    restart: on-failure
-  #    networks:
-  #      - kafka-network
 
   throughput-anlf:
     container_name: throughput-anlf
@@ -145,12 +125,12 @@ services:
         - BASE_IMAGE=tensorflow/tensorflow:2.17.0
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
-        - SERVICE_DIR=throughput-anlf
+        - SERVICE_DIR=services/throughput-anlf
         - SCRIPT_NAME=main.py
     environment:
       LOG_LEVEL: 'INFO'
     depends_on:
-      kafka-init:
+      kafka-topics-init:
         condition: service_completed_successfully
     restart: on-failure
     networks:
@@ -165,12 +145,12 @@ services:
         - BASE_IMAGE=python:3.11-slim-bullseye
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
-        - SERVICE_DIR=nf-stubs/gmlc
+        - SERVICE_DIR=services/nf-stubs/gmlc
         - SCRIPT_NAME=gmlc.py
     environment:
       LOG_LEVEL: 'INFO'
     depends_on:
-      kafka-init:
+      kafka-topics-init:
         condition: service_completed_successfully
     ports:
       - "10006:10006"
@@ -187,12 +167,12 @@ services:
         - BASE_IMAGE=python:3.11-slim-bullseye
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
-        - SERVICE_DIR=nf-stubs/ran
+        - SERVICE_DIR=services/nf-stubs/ran
         - SCRIPT_NAME=ran.py
     environment:
       LOG_LEVEL: 'INFO'
     depends_on:
-      kafka-init:
+      kafka-topics-init:
         condition: service_completed_successfully
     ports:
       - "10007:10007"
