@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import random
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -21,6 +22,8 @@ from nwdaf_api.models.supported_gad_shapes import SupportedGADShapes
 from pydantic import BaseModel
 from starlette import status
 
+log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+logging.basicConfig(level=getattr(logging, log_level), format='%(asctime)s - %(levelname)s - %(message)s')
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -146,5 +149,4 @@ async def notify(subscription_id: str, input_data: InputData):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
     uvicorn.run(app, host='0.0.0.0', port=port, log_level='warning', loop='asyncio')

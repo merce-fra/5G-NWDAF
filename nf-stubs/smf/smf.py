@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import random
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -16,6 +17,8 @@ from nwdaf_api.models.nsmf_event_exposure_notification import NsmfEventExposureN
 from nwdaf_api.models.smf_event_notification import SmfEventNotification
 from starlette import status
 
+log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+logging.basicConfig(level=getattr(logging, log_level), format='%(asctime)s - %(levelname)s - %(message)s')
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -92,5 +95,4 @@ async def send_notifications():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
     uvicorn.run(app, host='0.0.0.0', port=port, log_level='warning', loop='asyncio')

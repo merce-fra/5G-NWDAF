@@ -1,7 +1,7 @@
 services:
   zookeeper:
     container_name: zookeeper
-    image: confluentinc/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.7.1
     ports:
       - "2181:2181"
     environment:
@@ -13,7 +13,7 @@ services:
 
   kafka:
     container_name: kafka
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.7.1
     ports:
       - "9092:9092"  # External access
       - "19092:19092"  # Internal access within the Docker network
@@ -33,12 +33,18 @@ services:
       - kafka-network
 
   kafka-init:
+    container_name: kafka-init
     build:
-      context: kafka-init
+      context: .
       network: host
       args:
+        - BASE_IMAGE=python:3.11-slim-bullseye
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+        - SERVICE_DIR=kafka-init
+        - SCRIPT_NAME=create_topics.py
+    environment:
+      LOG_LEVEL: 'INFO'
     depends_on:
       - kafka
     networks:
@@ -47,11 +53,16 @@ services:
   dummy-client:
     container_name: dummy-client
     build:
-      context: dummy-client
+      context: .
       network: host
       args:
+        - BASE_IMAGE=python:3.11-slim-bullseye
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+        - SERVICE_DIR=dummy-client
+        - SCRIPT_NAME=dummy-client.py
+    environment:
+      LOG_LEVEL: 'INFO'
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -61,31 +72,41 @@ services:
     networks:
       - kafka-network
 
-#  smf:
-#    container_name: smf
-#    build:
-#      context: smf
-#      network: host
-#      args:
-#        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-#        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
-#    depends_on:
-#      kafka-init:
-#        condition: service_completed_successfully
-#    ports:
-#      - "10001:10001"
-#    restart: on-failure
-#    networks:
-#      - kafka-network
+  #  smf:
+  #    container_name: smf
+  #    build:
+  #      context: .
+  #      network: host
+  #      args:
+  #        - BASE_IMAGE=python:3.11-slim-bullseye
+  #        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
+  #        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+  #        - SERVICE_DIR=nf-stubs/smf
+  #        - SCRIPT_NAME=smf.py
+  #    environment:
+  #      LOG_LEVEL: 'INFO'
+  #    depends_on:
+  #      kafka-init:
+  #        condition: service_completed_successfully
+  #    ports:
+  #      - "10001:10001"
+  #    restart: on-failure
+  #    networks:
+  #      - kafka-network
 
   api-gateway:
     container_name: api-gateway
     build:
-      context: api-gateway
+      context: .
       network: host
       args:
+        - BASE_IMAGE=tensorflow/tensorflow:2.17.0
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+        - SERVICE_DIR=api-gateway
+        - SCRIPT_NAME=main.py
+    environment:
+      LOG_LEVEL: 'INFO'
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -95,29 +116,39 @@ services:
     networks:
       - kafka-network
 
-#  basic-anlf:
-#    container_name: basic-anlf
-#    build:
-#      context: anlf
-#      network: host
-#      args:
-#        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-#        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
-#    depends_on:
-#      kafka-init:
-#        condition: service_completed_successfully
-#    restart: on-failure
-#    networks:
-#      - kafka-network
+  #  basic-anlf:
+  #    container_name: basic-anlf
+  #    build:
+  #      context: .
+  #      network: host
+  #      args:
+  #        - BASE_IMAGE=python:3.11-slim-bullseye
+  #        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
+  #        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+  #        - SERVICE_DIR=anlf
+  #        - SCRIPT_NAME=main.py
+  #    environment:
+  #      LOG_LEVEL: 'INFO'
+  #    depends_on:
+  #      kafka-init:
+  #        condition: service_completed_successfully
+  #    restart: on-failure
+  #    networks:
+  #      - kafka-network
 
   throughput-anlf:
     container_name: throughput-anlf
     build:
-      context: throughput_anlf
+      context: .
       network: host
       args:
-      - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-      - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+        - BASE_IMAGE=tensorflow/tensorflow:2.17.0
+        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
+        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+        - SERVICE_DIR=throughput-anlf
+        - SCRIPT_NAME=main.py
+    environment:
+      LOG_LEVEL: 'INFO'
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -128,11 +159,16 @@ services:
   gmlc:
     container_name: gmlc
     build:
-      context: gmlc
+      context: .
       network: host
       args:
+        - BASE_IMAGE=python:3.11-slim-bullseye
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+        - SERVICE_DIR=nf-stubs/gmlc
+        - SCRIPT_NAME=gmlc.py
+    environment:
+      LOG_LEVEL: 'INFO'
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -142,7 +178,27 @@ services:
     networks:
       - kafka-network
 
-
+  ran:
+    container_name: ran
+    build:
+      context: .
+      network: host
+      args:
+        - BASE_IMAGE=python:3.11-slim-bullseye
+        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
+        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+        - SERVICE_DIR=nf-stubs/ran
+        - SCRIPT_NAME=ran.py
+    environment:
+      LOG_LEVEL: 'INFO'
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    ports:
+      - "10007:10007"
+    restart: on-failure
+    networks:
+      - kafka-network
 
 networks:
   kafka-network:
