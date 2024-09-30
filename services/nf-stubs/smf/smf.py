@@ -6,11 +6,15 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 import httpx
+logging.getLogger('httpx').setLevel(logging.WARNING)
+
 from uuid import uuid4
 
 from pydantic import BaseModel
 
 import uvicorn
+logging.getLogger("uvicorn").setLevel(logging.WARNING)
+
 from fastapi import FastAPI, Response
 from nwdaf_api.models.nsmf_event_exposure import NsmfEventExposure
 from nwdaf_api.models.nsmf_event_exposure_notification import NsmfEventExposureNotification

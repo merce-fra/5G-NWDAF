@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import signal
 from enum import Enum
 from typing import Type
 import logging
@@ -8,19 +9,21 @@ import logging
 from confluent_kafka import KafkaError, KafkaException
 from confluent_kafka.admin import AdminClient, NewTopic
 
-from nwdaf_api.models import (
-    NwdafEvent,
+from nwdaf_api import (
     SmfEvent,
     AfEvent,
     AmfEventType,
     EventType,
     NefEvent,
     EventNotifyDataType,
-    RanEvent
+    RanEvent,
+    NwdafEvent
 )
 
 log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(level=getattr(logging, log_level), format='%(asctime)s - %(levelname)s - %(message)s')
+
+shutdown_flag = False
 
 
 def wait_for_kafka(bootstrap_server: str, timeout: int = 20) -> bool:
@@ -30,8 +33,11 @@ def wait_for_kafka(bootstrap_server: str, timeout: int = 20) -> bool:
     start_time = time.time()
 
     while True:
+        if shutdown_flag:
+            logging.warning("Shutdown signal received. Stopping Kafka wait.")
+            raise KeyboardInterrupt("Kafka wait interrupted by shutdown signal")
+
         try:
-            # Attempt to list topics to check Kafka's availability
             admin_client.list_topics(timeout=10)
             logging.info("Kafka is ready")
             return True
@@ -42,7 +48,6 @@ def wait_for_kafka(bootstrap_server: str, timeout: int = 20) -> bool:
             logging.debug(f"Kafka is not ready yet. Error: {e}. Time elapsed: {elapsed_time:.2f}s. "
                           f"Retrying... Remaining time: {remaining_time:.2f}s")
 
-            # If the timeout is exceeded, raise a TimeoutError
             if elapsed_time >= timeout:
                 logging.error("Timeout reached while waiting for Kafka to become ready.")
                 raise TimeoutError("Kafka did not become ready within the timeout period.")
@@ -66,10 +71,7 @@ def create_topic(admin_client: AdminClient, topic_name: str) -> None:
 
 
 def get_topic_names(prefix: str, event_type: Type[Enum]) -> list[str]:
-    topic_list = []
-    for event in event_type:
-        topic_list.append(f"{prefix}.{event.value}")
-    return topic_list
+    return [f"{prefix}.{event.value}" for event in event_type]
 
 
 def get_event_exposure_topic_names(prefix: str) -> list[str]:
@@ -86,8 +88,23 @@ def get_event_exposure_topic_names(prefix: str) -> list[str]:
     return topic_list
 
 
+# Signal handler to stop gracefully
+def handle_shutdown_signal(signal_name):
+    global shutdown_flag
+    logging.info(f"Received {signal_name}. Setting shutdown flag...")
+    shutdown_flag = True
+
+
+def register_signal_handlers():
+    signal.signal(signal.SIGINT, lambda signum, frame: handle_shutdown_signal("SIGINT"))
+    signal.signal(signal.SIGTERM, lambda signum, frame: handle_shutdown_signal("SIGTERM"))
+
+
 def main():
+    global shutdown_flag
     bootstrap_server = "kafka:19092"
+
+    register_signal_handlers()
 
     try:
         wait_for_kafka(bootstrap_server)
@@ -101,15 +118,21 @@ def main():
 
         logging.info("Creating all the relevant Kafka topics...")
         for topic_name in topic_list:
+            if shutdown_flag:
+                logging.warning("Shutdown flag detected during topic creation. Exiting...")
+                break
             create_topic(admin_client, topic_name)
 
         logging.info("All Kafka topics created successfully")
         exit_code = 0
+    except KeyboardInterrupt:
+        logging.info("Process interrupted by signal.")
+        exit_code = 1
     except Exception as e:
         logging.error(f"Kafka topics initialization failed: {e}")
         exit_code = 1
 
-    logging.info("Exiting...")
+    logging.info("Exiting Kafka initialization.")
     sys.exit(exit_code)
 
 

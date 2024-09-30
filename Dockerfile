@@ -43,4 +43,4 @@ RUN pip config set global.trusted-host "pypi.org merce-gitlab.fr-merce.mee.com" 
 
 # Run the service
 ENV SCRIPT_NAME=${SCRIPT_NAME}
-ENTRYPOINT ["sh", "-c", "python -u $SCRIPT_NAME"]
+ENTRYPOINT ["sh", "-c", "exec python -u $SCRIPT_NAME"]

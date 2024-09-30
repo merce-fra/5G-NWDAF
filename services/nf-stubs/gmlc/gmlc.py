@@ -8,7 +8,11 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 
 import httpx
+logging.getLogger('httpx').setLevel(logging.WARNING)
+
 import uvicorn
+logging.getLogger("uvicorn").setLevel(logging.WARNING)
+
 from fastapi import FastAPI
 from nwdaf_api.models.event_notify_data_ext import EventNotifyDataExt
 from nwdaf_api.models.event_notify_data_type import EventNotifyDataType
@@ -24,6 +28,7 @@ from starlette import status
 
 log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(level=getattr(logging, log_level), format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -59,13 +64,17 @@ BaseModel.Config = type('Config', (), {
 
 @app.post("/ngmlc-loc/v1/provide-location", status_code=status.HTTP_200_OK)
 async def provide_location_sub(input_data: InputData):
-    logging.info(f"Received new GMLC input data: {input_data.model_dump_json(exclude_unset=True)}")
+    periodic_event_info = input_data.periodic_event_info
+    reporting_amount = "indefinitely" if periodic_event_info.reporting_infinite_ind else f"{periodic_event_info.reporting_amount} times"
+    logging.info(
+        f"Received periodic location request for UE '{input_data.supi}' (every {periodic_event_info.reporting_interval} seconds, {reporting_amount})")
+    logging.debug(f"Received GMLC input data: {input_data.model_dump_json(exclude_unset=True)}")
     subscription_id = str(uuid4())
     notification_interval = timedelta(
-        seconds=input_data.periodic_event_info.reporting_interval
+        seconds=periodic_event_info.reporting_interval
     )
     location_subscriptions[subscription_id] = GmlcSubscriptionData(input_data=input_data,
-                                                                   next_notification_time=datetime.now()+notification_interval)
+                                                                   next_notification_time=datetime.now() + notification_interval)
 
     return
 
@@ -131,13 +140,14 @@ async def notify(subscription_id: str, input_data: InputData):
     response = None
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            logging.info(
-                f"Sending location notification to '{input_data.hgmlc_call_back_uri}' for subscription id '{subscription_id}': {notification.model_dump_json(exclude_unset=True)}")
+            logging.info(f"Sending new location data for UE '{input_data.supi}'...")
+            logging.debug(
+                f"Location notification to '{input_data.hgmlc_call_back_uri}' for subscription id '{subscription_id}': {notification.model_dump_json(exclude_unset=True)}")
             response = await client.post(input_data.hgmlc_call_back_uri,
                                          data=notification.model_dump_json(exclude_unset=True),
                                          timeout=5.0)
             response.raise_for_status()
-            logging.info(
+            logging.debug(
                 f"Sent notification to {input_data.hgmlc_call_back_uri} (status code: {response.status_code})")
 
     except httpx.HTTPError as e:

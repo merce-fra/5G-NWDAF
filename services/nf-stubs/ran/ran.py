@@ -8,7 +8,13 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 
 import httpx
+
+logging.getLogger('httpx').setLevel(logging.WARNING)
+
 import uvicorn
+
+logging.getLogger("uvicorn").setLevel(logging.WARNING)
+
 from fastapi import FastAPI, Response
 
 from nwdaf_api.models import (
@@ -18,11 +24,12 @@ from nwdaf_api.models import (
     RanEvent
 )
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from starlette import status
 
 log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(level=getattr(logging, log_level), format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -58,7 +65,8 @@ BaseModel.Config = type('Config', (), {
 
 @app.post("/ran-event-exposure/v1/subscriptions")
 async def ran_ee_subscription_handler(ran_sub: RanEventSubscription):
-    logging.info(f"Received new RAN event exposure subscription: {ran_sub.model_dump_json(exclude_unset=True)}")
+    logging.info(
+        f"Received periodic RSRP info subscription for UE '{ran_sub.ue_ids[0]}' (every {ran_sub.periodicity} seconds)")
     subscription_id = str(uuid4())
     notification_interval = timedelta(seconds=ran_sub.periodicity)
     rsrp_subscriptions[subscription_id] = RanSubscriptionData(ran_sub=ran_sub,
@@ -109,23 +117,31 @@ async def notify(subscription_id: str, ran_sub: RanEventSubscription):
         lte_rsrp = random.randint(-140, -44)
         nr_ssRsrp = random.uniform(-139.0, -68.0)
 
-        notification = RanEventExposureNotification(event=RanEvent.RSRP_INFO,
-                                                    timestamp=datetime.now(),
-                                                    correlation_id=ran_sub.correlation_id,
-                                                    rsrp_infos=[RsrpInfo(ue_id=ue_id,
-                                                                         nr_ss_rsrp=nr_ssRsrp,
-                                                                         lte_rsrp=lte_rsrp)])
+        notification = None
+        try:
+            notification = RanEventExposureNotification(event=RanEvent.RSRP_INFO,
+                                                        time_stamp=datetime.now(),
+                                                        correlation_id=ran_sub.correlation_id,
+                                                        rsrp_infos=[RsrpInfo(ue_id=ue_id,
+                                                                             nr_ss_rsrp=nr_ssRsrp,
+                                                                             lte_rsrp=lte_rsrp)])
+            logging.debug(
+                f"Crafted RAN event exposure notification: {notification.model_dump_json(exclude_unset=True)}")
+        except ValidationError as err:
+            error_messages = "\n".join([f"{e['loc']}: {e['msg']}" for e in err.errors()])
+            logging.error(f"Validation error creating RanEventExposureNotification: {error_messages}")
 
         response = None
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                logging.info(
+                logging.info(f"Sending RSRP information for UE '{ue_id}'...")
+                logging.debug(
                     f"Sending RSRP info notification to '{ran_sub.notif_uri}' for subscription id '{subscription_id}': {notification.model_dump_json(exclude_unset=True)}")
                 response = await client.post(ran_sub.notif_uri,
                                              data=notification.model_dump_json(exclude_unset=True),
                                              timeout=5.0)
                 response.raise_for_status()
-                logging.info(
+                logging.debug(
                     f"Sent notification to {ran_sub.notif_uri} (status code: {response.status_code})")
 
         except httpx.HTTPError as e:
