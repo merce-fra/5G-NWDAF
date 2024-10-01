@@ -3,7 +3,7 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-import numpy
+import numpy as np
 from nwdaf_api.models import (
     NFType,
     NnwdafEventsSubscription,
@@ -24,6 +24,10 @@ from nwdaf_libcommon.AnlfService import AnlfService
 from nwdaf_libcommon.ControlOperationType import ControlOperationType
 
 
+def get_value_or_default(value, default=0):
+    return value if value is not None else default
+
+
 def get_gmlc_subscription_payload(sub_id: str, supi: str) -> InputData:
     """
     Creates a GMLC subscription payload.
@@ -39,7 +43,7 @@ def get_gmlc_subscription_payload(sub_id: str, supi: str) -> InputData:
                      ldr_reference=sub_id,
                      external_client_type=ExternalClientType.VALUE_ADDED_SERVICES,
                      periodic_event_info=PeriodicEventInfo(reporting_amount=1,
-                                                           reporting_interval=5,
+                                                           reporting_interval=10,
                                                            reporting_infinite_ind=True),
                      location_type_requested=LocationTypeRequested.CURRENT_LOCATION)
 
@@ -49,7 +53,7 @@ def get_ran_subscription_payload(sub_id: str, supi: str) -> RanEventSubscription
                                 correlation_id=sub_id,
                                 notif_uri="myUri",
                                 ue_ids=[supi],
-                                periodicity=5)
+                                periodicity=10)
 
 
 def get_analytics_notification_payload(supi: str, throughput: float) -> EventNotification:
@@ -122,10 +126,10 @@ class ThroughputAnlfService(AnlfService):
                 f"Created a new analytics subscription for '{event_sub_dict['event'].value}': SUPIs={event_sub_dict['tgt_ue']['supis']}")
             # Send one subscription request per SUPI to the GMLC, and one to the RAN
             for supi in event_sub.tgt_ue.supis:
-                logging.info(f"Sending a periodic location request to the GMLC for UE '{supi}'...")
+                logging.info(f"Sending a periodic location request to the GMLC for UE '{supi}', CORRELATION_ID={sub_id}")
                 self.queue_event_exposure_subscription(NFType.GMLC, EventNotifyDataType.PERIODIC,
                                                        get_gmlc_subscription_payload(sub_id, supi))
-                logging.info(f"Sending a RSRP info subscription to the RAN for UE '{supi}'...")
+                logging.info(f"Sending a RSRP info subscription to the RAN for UE '{supi}', CORRELATION_ID={sub_id}")
                 self.queue_event_exposure_subscription(NFType.RAN, RanEvent.RSRP_INFO,
                                                        get_ran_subscription_payload(sub_id, supi))
 
@@ -141,7 +145,8 @@ class ThroughputAnlfService(AnlfService):
                        f"Location (Lat, Lon)={notif_dict['location_estimate']['anyof_schema_1_validator']['point']['lat']}, "
                        f"{notif_dict['location_estimate']['anyof_schema_1_validator']['point']['lon']}, "
                        f"Speed={notif_dict['velocity_estimate']['anyof_schema_1_validator']['h_speed']:.2f} km/h, "
-                       f"Bearing={notif_dict['velocity_estimate']['anyof_schema_1_validator']['bearing']}°"
+                       f"Bearing={notif_dict['velocity_estimate']['anyof_schema_1_validator']['bearing']}°, "
+                       f"CORRELATION_ID={ue_location_notification.ldr_reference}"
                        )
         logging.info(log_message)
         location_estimate = ue_location_notification.location_estimate.anyof_schema_1_validator
@@ -167,7 +172,8 @@ class ThroughputAnlfService(AnlfService):
         for rsrp_info in ran_notification.rsrp_infos:
             logging.info(f"Received new RSRP information from the RAN: UE_ID='{rsrp_info.ue_id}', "
                          f"LTE_RSRP={rsrp_info.lte_rsrp:.2f} dB, "
-                         f"NR_SS_RSRP={rsrp_info.nr_ss_rsrp:.2f} dB")
+                         f"NR_SS_RSRP={rsrp_info.nr_ss_rsrp:.2f} dB, "
+                         f"CORRELATION_ID={ran_notification.correlation_id}")
 
             if rsrp_info.ue_id not in self.pending_predictions:
                 self.pending_predictions[rsrp_info.ue_id] = self.PredictionNotificationParameters()
@@ -175,14 +181,22 @@ class ThroughputAnlfService(AnlfService):
             prediction_params = self.pending_predictions[rsrp_info.ue_id]
             prediction_params.lte_rsrp = rsrp_info.lte_rsrp
             prediction_params.nr_ssRsrp = rsrp_info.nr_ss_rsrp
+            prediction_params.correlation_id = ran_notification.correlation_id
 
             prediction_params.is_ready = True
 
     def perform_prediction(self, prediction_params: PredictionNotificationParameters) -> (float, bool):
-        input_data = numpy.array(
-            [[prediction_params.latitude, prediction_params.longitude, prediction_params.lte_rsrp,
-              prediction_params.nr_ssRsrp,
-              prediction_params.moving_speed, prediction_params.compass_direction]])
+
+        input_data = np.array(
+            [[
+                get_value_or_default(prediction_params.latitude),
+                get_value_or_default(prediction_params.longitude),
+                get_value_or_default(prediction_params.lte_rsrp),
+                get_value_or_default(prediction_params.nr_ssRsrp),
+                get_value_or_default(prediction_params.moving_speed),
+                get_value_or_default(prediction_params.compass_direction)
+            ]]
+        )
         input_data = input_data.reshape((1, 1, 6))
         return self.predict(self.model_id, input_data)
 
@@ -190,7 +204,7 @@ class ThroughputAnlfService(AnlfService):
         while True:
             prediction_data_to_delete = []
             for supi, parameters in self.pending_predictions.items():
-                if parameters.is_ready:
+                if parameters.is_ready and parameters.correlation_id is not None:
                     prediction_tuple = self.perform_prediction(parameters)
                     predicted_throughput = prediction_tuple[0][0, 0]
                     logging.info(

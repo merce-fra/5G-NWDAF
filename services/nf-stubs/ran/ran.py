@@ -66,7 +66,8 @@ BaseModel.Config = type('Config', (), {
 @app.post("/ran-event-exposure/v1/subscriptions")
 async def ran_ee_subscription_handler(ran_sub: RanEventSubscription):
     logging.info(
-        f"Received periodic RSRP info subscription for UE '{ran_sub.ue_ids[0]}' (every {ran_sub.periodicity} seconds)")
+        f"Received periodic RSRP info subscription for UE '{ran_sub.ue_ids[0]}': PERIODICITY={ran_sub.periodicity}s, "
+        f"CORRELATION_ID='{ran_sub.correlation_id}'")
     subscription_id = str(uuid4())
     notification_interval = timedelta(seconds=ran_sub.periodicity)
     rsrp_subscriptions[subscription_id] = RanSubscriptionData(ran_sub=ran_sub,
@@ -94,7 +95,7 @@ async def send_notifications():
         for subscription_id, subscription_data in rsrp_subscriptions.items():
             if should_notify(subscription_data):
                 logging.debug("A new notification is ready to be sent")
-                notifications_to_send.append((subscription_id, subscription_data.ran_sub))
+                notifications_to_send.append((subscription_data.ran_sub.correlation_id, subscription_data.ran_sub))
 
                 notification_interval = timedelta(seconds=subscription_data.ran_sub.periodicity)
                 subscription_data.next_notification_time += notification_interval
@@ -121,7 +122,7 @@ async def notify(subscription_id: str, ran_sub: RanEventSubscription):
         try:
             notification = RanEventExposureNotification(event=RanEvent.RSRP_INFO,
                                                         time_stamp=datetime.now(),
-                                                        correlation_id=ran_sub.correlation_id,
+                                                        correlation_id=subscription_id,
                                                         rsrp_infos=[RsrpInfo(ue_id=ue_id,
                                                                              nr_ss_rsrp=nr_ssRsrp,
                                                                              lte_rsrp=lte_rsrp)])

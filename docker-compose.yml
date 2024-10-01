@@ -9,7 +9,7 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
       ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: 'ERROR'
     networks:
-      - kafka-network
+      - nwdaf-network
 
   kafka:
     container_name: kafka
@@ -30,7 +30,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     networks:
-      - kafka-network
+      - nwdaf-network
 
   kafka-topics-init:
     container_name: kafka-topics-init
@@ -48,9 +48,9 @@ services:
     depends_on:
       - kafka
     networks:
-      - kafka-network
+      - nwdaf-network
 
-  dummy-client:
+  notification-client:
     container_name: notification-client
     build:
       context: .
@@ -70,7 +70,7 @@ services:
       - "8181:8181"
     restart: on-failure
     networks:
-      - kafka-network
+      - nwdaf-network
 
   #  smf:
   #    container_name: smf
@@ -92,7 +92,7 @@ services:
   #      - "10001:10001"
   #    restart: on-failure
   #    networks:
-  #      - kafka-network
+  #      - nwdaf-network
 
   api-gateway:
     container_name: api-gateway
@@ -114,7 +114,7 @@ services:
       - "5000:5000"
     restart: on-failure
     networks:
-      - kafka-network
+      - nwdaf-network
 
   throughput-anlf:
     container_name: throughput-anlf
@@ -134,7 +134,7 @@ services:
         condition: service_completed_successfully
     restart: on-failure
     networks:
-      - kafka-network
+      - nwdaf-network
 
   gmlc:
     container_name: gmlc
@@ -156,7 +156,7 @@ services:
       - "10006:10006"
     restart: on-failure
     networks:
-      - kafka-network
+      - nwdaf-network
 
   ran:
     container_name: ran
@@ -178,8 +178,37 @@ services:
       - "10007:10007"
     restart: on-failure
     networks:
-      - kafka-network
+      - nwdaf-network
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --log.level=warn
+    networks:
+      - nwdaf-network
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_LOG_LEVEL=warn
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    networks:
+      - nwdaf-network
 
 networks:
-  kafka-network:
+  nwdaf-network:
     driver: bridge
+
+volumes:
+  grafana-storage:
