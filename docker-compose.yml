@@ -180,6 +180,29 @@ services:
     networks:
       - nwdaf-network
 
+  csv-file-player:
+    container_name: csv-file-player
+    build:
+      context: .
+      network: host
+      args:
+        - BASE_IMAGE=python:3.11-slim-bullseye
+        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
+        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+        - SERVICE_DIR=services/nf-stubs/csv_file_player
+        - SCRIPT_NAME=main.py
+    environment:
+      LOG_LEVEL: 'INFO'
+    depends_on:
+      kafka-topics-init:
+        condition: service_completed_successfully
+    ports:
+      - "9999:9999"
+    restart: on-failure
+    networks:
+      - nwdaf-network
+
+
   prometheus:
     image: prom/prometheus
     container_name: prometheus

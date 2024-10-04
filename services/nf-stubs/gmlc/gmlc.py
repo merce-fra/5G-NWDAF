@@ -1,19 +1,23 @@
 import asyncio
+import json
 import logging
 import os
 import random
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Optional
 from uuid import uuid4
 
 import httpx
+
 logging.getLogger('httpx').setLevel(logging.WARNING)
 
 import uvicorn
+
 logging.getLogger("uvicorn").setLevel(logging.WARNING)
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from nwdaf_api.models.event_notify_data_ext import EventNotifyDataExt
 from nwdaf_api.models.event_notify_data_type import EventNotifyDataType
 from nwdaf_api.models.geographical_coordinates import GeographicalCoordinates
@@ -62,6 +66,16 @@ BaseModel.Config = type('Config', (), {
 })
 
 
+class GmlcData(BaseModel):
+    latitude: Optional[float]
+    longitude: Optional[float]
+    movingSpeed: Optional[float]
+    compassDirection: Optional[int]
+
+
+next_data: Optional[GmlcData] = None
+
+
 @app.post("/ngmlc-loc/v1/provide-location", status_code=status.HTTP_200_OK)
 async def provide_location_sub(input_data: InputData):
     periodic_event_info = input_data.periodic_event_info
@@ -77,6 +91,14 @@ async def provide_location_sub(input_data: InputData):
                                                                    next_notification_time=datetime.now() + notification_interval)
 
     return
+
+
+@app.post("/data")
+async def receive_data(gmlc_data: GmlcData):
+    global next_data
+    logging.debug(f"Received data: {gmlc_data.model_dump_json(exclude_unset=True)}")
+    next_data = gmlc_data
+    return {"message": "Data received successfully", "received_data": gmlc_data.model_dump_json(exclude_unset=True)}
 
 
 def should_notify(subscription_data: GmlcSubscriptionData):
@@ -118,15 +140,18 @@ async def send_notifications():
 async def notify(subscription_id: str, input_data: InputData):
     logging.debug("Generating GMLC location notification with random data")
     # Generate random UE location data
-    latitude = random.uniform(44.9732550, 44.97696380)
-    longitude = random.uniform(-93.25899079999999, -93.26375390000001)
+    latitude = next_data.latitude if next_data and next_data.latitude is not None else random.uniform(44.9732550,
+                                                                                                      44.97696380)
+    longitude = next_data.longitude if next_data and next_data.longitude is not None else random.uniform(
+        -93.25899079999999, -93.26375390000001)
     coordinates = GeographicalCoordinates(lon=longitude, lat=latitude)
     point = Point(shape=SupportedGADShapes.POINT, point=coordinates)
     location_estimate = GeographicArea(anyof_schema_1_validator=point)
 
     # Generate random UE velocity data
-    speed = random.uniform(0.00010015551, 9.9988235)
-    compass_direction = random.randint(0, 360)
+    speed = next_data.speed if next_data and next_data.speed is not None else random.uniform(0.00010015551, 9.9988235)
+    compass_direction = next_data.compass_direction if next_data and next_data.compass_direction is not None else random.randint(
+        0, 360)
     horizontal_velocity = HorizontalVelocity(h_speed=speed, bearing=compass_direction)
     velocity_estimate = VelocityEstimate(anyof_schema_1_validator=horizontal_velocity)
 

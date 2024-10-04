@@ -1,10 +1,12 @@
 import asyncio
+import json
 import logging
 import os
 import random
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Optional
 from uuid import uuid4
 
 import httpx
@@ -15,7 +17,7 @@ import uvicorn
 
 logging.getLogger("uvicorn").setLevel(logging.WARNING)
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, Request
 
 from nwdaf_api.models import (
     RanEventSubscription,
@@ -50,6 +52,13 @@ class RanSubscriptionData:
     notification_count: int = 0
 
 
+class RanData(BaseModel):
+    lte_rsrp: Optional[int]
+    nr_ssRsrp: Optional[float]
+
+
+next_data: Optional[RanData] = None
+
 app = FastAPI(lifespan=lifespan)
 
 service_name = "ran"
@@ -78,6 +87,14 @@ async def ran_ee_subscription_handler(ran_sub: RanEventSubscription):
                     media_type="application/json",
                     headers={
                         "Location": f"http://{service_name}:{port}/ran-event-exposure/v1/subscriptions/{subscription_id}"})
+
+
+@app.post("/data")
+async def receive_data(ran_data: RanData):
+    global next_data
+    logging.debug(f"Received data: {ran_data.model_dump_json(exclude_unset=True)}")
+    next_data = ran_data
+    return {"message": "Data received successfully", "received_data": ran_data.model_dump_json(exclude_unset=True)}
 
 
 def should_notify(subscription_data: RanSubscriptionData):
@@ -111,12 +128,13 @@ async def send_notifications():
 
 
 async def notify(subscription_id: str, ran_sub: RanEventSubscription):
+    global next_data
     for ue_id in ran_sub.ue_ids:
         logging.debug("Generating RSRP info notification with random data")
 
-        # Generate random UE location data
-        lte_rsrp = random.randint(-140, -44)
-        nr_ssRsrp = random.uniform(-139.0, -68.0)
+        lte_rsrp = random.randint(-140, -44) if next_data is None or next_data.lte_rsrp is None else next_data.lte_rsrp
+        nr_ssRsrp = random.uniform(-139.0,
+                                   -68.0) if next_data is None or next_data.nr_ssRsrp is None else next_data.nr_ssRsrp
 
         notification = None
         try:
