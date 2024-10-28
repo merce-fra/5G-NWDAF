@@ -1,5 +1,3 @@
 nwdaf-api
 nwdaf-libcommon
 fastapi
-geopy
-scikit-learn

@@ -136,6 +136,26 @@ services:
     networks:
       - nwdaf-network
 
+  mtlf:
+    container_name: mtlf
+    build:
+      context: .
+      network: host
+      args:
+        - BASE_IMAGE=tensorflow/tensorflow:2.17.0
+        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
+        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+        - SERVICE_DIR=services/mtlf
+        - SCRIPT_NAME=main.py
+    environment:
+      LOG_LEVEL: 'INFO'
+    depends_on:
+      kafka-topics-init:
+        condition: service_completed_successfully
+    restart: on-failure
+    networks:
+      - nwdaf-network
+
   gmlc:
     container_name: gmlc
     build:
