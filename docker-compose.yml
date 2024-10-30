@@ -38,7 +38,7 @@ services:
       context: .
       network: host
       args:
-        - BASE_IMAGE=python:3.11-slim-bullseye
+        - BASE_IMAGE=python:3.12
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/kafka-topics-init
@@ -56,7 +56,7 @@ services:
       context: .
       network: host
       args:
-        - BASE_IMAGE=python:3.11-slim-bullseye
+        - BASE_IMAGE=python:3.12
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/notification-client
@@ -78,7 +78,7 @@ services:
   #      context: .
   #      network: host
   #      args:
-  #        - BASE_IMAGE=python:3.11-slim-bullseye
+  #        - BASE_IMAGE=python:3.12
   #        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
   #        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
   #        - SERVICE_DIR=services/nf-stubs/smf
@@ -100,7 +100,7 @@ services:
       context: .
       network: host
       args:
-        - BASE_IMAGE=tensorflow/tensorflow:2.17.0
+        - BASE_IMAGE=python:3.12
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/api-gateway
@@ -122,7 +122,7 @@ services:
       context: .
       network: host
       args:
-        - BASE_IMAGE=tensorflow/tensorflow:2.17.0
+        - BASE_IMAGE=python:3.12
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/throughput-anlf
@@ -142,7 +142,7 @@ services:
       context: .
       network: host
       args:
-        - BASE_IMAGE=tensorflow/tensorflow:2.17.0
+        - BASE_IMAGE=python:3.12
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/mtlf
@@ -162,7 +162,7 @@ services:
       context: .
       network: host
       args:
-        - BASE_IMAGE=python:3.11-slim-bullseye
+        - BASE_IMAGE=python:3.12
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/nf-stubs/gmlc
@@ -184,7 +184,7 @@ services:
       context: .
       network: host
       args:
-        - BASE_IMAGE=python:3.11-slim-bullseye
+        - BASE_IMAGE=python:3.12
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/nf-stubs/ran
@@ -206,7 +206,7 @@ services:
       context: .
       network: host
       args:
-        - BASE_IMAGE=python:3.11-slim-bullseye
+        - BASE_IMAGE=python:3.12
         - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
         - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/nf-stubs/csv_file_player

@@ -1,5 +1,5 @@
 # Use a build argument for the base image
-ARG BASE_IMAGE=python:3.11
+ARG BASE_IMAGE=python:3.12
 FROM ${BASE_IMAGE}
 
 # Define build arguments for the GitLab token and other configurations

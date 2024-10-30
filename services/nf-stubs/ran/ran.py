@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import os
 import random
@@ -17,7 +16,7 @@ import uvicorn
 
 logging.getLogger("uvicorn").setLevel(logging.WARNING)
 
-from fastapi import FastAPI, Response, Request
+from fastapi import FastAPI, Response
 
 from nwdaf_api.models import (
     RanEventSubscription,

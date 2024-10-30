@@ -2,12 +2,11 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import override
 
-import joblib as jl
 import numpy as np
-from geopy import Point
-from geopy.distance import geodesic
+from keras.src.trainers.trainer import Trainer
+from nwdaf_api import MLEventNotif
 from nwdaf_api.models import (
     NFType,
     NnwdafEventsSubscription,
@@ -26,9 +25,6 @@ from nwdaf_api.models import (
 )
 from nwdaf_libcommon.AnlfService import AnlfService
 from pydantic import BaseModel
-from sklearn.preprocessing import MinMaxScaler
-
-PREDICTION_TIME_STEP: float = 10.0
 
 
 def get_value_or_default(value, default=0):
@@ -75,17 +71,9 @@ def get_analytics_notification_payload(supi: str, throughput: float) -> EventNot
         EventNotification: The analytics notification payload.
     """
     predicted_throughput_info = PredictedThroughputInfo(supi=supi,
-                                                        throughput=f"{abs(throughput):.2f} Kbps")
+                                                        throughput=f"{throughput:.2f} Kbps")
     return EventNotification(event=NwdafEvent.UE_LOC_THROUGHPUT,
                              predicted_throughput_infos=[predicted_throughput_info])
-
-
-def calculate_next_position(latitude: float, longitude: float, bearing: int, speed: float,
-                            time_step: float) -> (float, float):
-    distance_kilometres = (speed * time_step) / 1000.0
-    current_location = Point(latitude, longitude)
-    new_location = geodesic(kilometers=distance_kilometres).destination(current_location, bearing)
-    return new_location.latitude, new_location.longitude
 
 
 class ThroughputAnlfService(AnlfService):
@@ -95,18 +83,16 @@ class ThroughputAnlfService(AnlfService):
 
     @dataclass
     class PredictionNotificationParameters:
-        latitude: Optional[float] = None
-        longitude: Optional[float] = None
-        moving_speed: Optional[float] = None
-        compass_direction: Optional[int] = None
-        lte_rsrp: Optional[float] = None
-        nr_ssRsrp: Optional[float] = None
-        correlation_id: Optional[str] = None
-        is_ready: Optional[bool] = False
+        latitude: float = 0.0
+        longitude: float = 0.0
+        moving_speed: float = 0.0
+        compass_direction: int = 0
+        lte_rsrp: float = 0.0
+        nr_ssRsrp: float = 0.0
+        correlation_id: str = "id"
+        is_ready: bool = False
 
     pending_predictions = dict[str, PredictionNotificationParameters]
-    scaler_x: Optional[MinMaxScaler] = None
-    scaler_y: Optional[MinMaxScaler] = None
 
     def __init__(self) -> None:
         """
@@ -117,14 +103,15 @@ class ThroughputAnlfService(AnlfService):
                          NwdafEvent.UE_LOC_THROUGHPUT,
                          {(NFType.GMLC, EventNotifyDataType.PERIODIC), (NFType.RAN, RanEvent.RSRP_INFO)})
 
-        self.model_id = self.load_keras_model_file("models/lstm_model.keras")
-        self.scaler_x = jl.load("models/x_scaler.save")
-        self.scaler_y = jl.load("models/y_scaler.save")
-
         self.pending_predictions = dict()
-
         logging.info(f"AnLF service '{self._service_name}' is ready")
 
+    @override
+    def on_ml_model_provision_data(self, notification: MLEventNotif):
+        logging.info(f"Received ML Model provision data: {notification.model_dump_json(exclude_unset=True)}")
+        self.initialize_ml_model(notification.m_l_file_addr.m_l_model_url)
+
+    @override
     def on_analytics_subscription_created(self, sub_id: str, sub: NnwdafEventsSubscription) -> None:
         """
         Handles the creation of a subscription.
@@ -150,6 +137,7 @@ class ThroughputAnlfService(AnlfService):
                 self.send_event_exposure_subscription(NFType.RAN, RanEvent.RSRP_INFO,
                                                       get_ran_subscription_payload(sub_id, supi))
 
+    @override
     def on_event_exposure_data(self, nf_type: NFType, event_type: Enum, data: BaseModel):
         if isinstance(data, EventNotifyDataExt):
             self.on_ue_location_received(EventNotifyDataExt.model_validate(data))
@@ -211,43 +199,40 @@ class ThroughputAnlfService(AnlfService):
 
             prediction_params.is_ready = True
 
-    def perform_prediction(self, prediction_params: PredictionNotificationParameters) -> (float, float):
-        # Get the predicted position of the UE in X seconds given the received parameters
-        future_position = calculate_next_position(get_value_or_default(prediction_params.latitude),
-                                                  get_value_or_default(prediction_params.longitude),
-                                                  get_value_or_default(prediction_params.compass_direction),
-                                                  get_value_or_default(prediction_params.moving_speed),
-                                                  PREDICTION_TIME_STEP)
-
+    def perform_prediction(self, prediction_params: PredictionNotificationParameters):
         input_data = np.array(
             [[
-                future_position[0],
-                future_position[1],
-                get_value_or_default(prediction_params.lte_rsrp),
-                get_value_or_default(prediction_params.nr_ssRsrp),
-                get_value_or_default(prediction_params.moving_speed),
-                get_value_or_default(prediction_params.compass_direction)
+                prediction_params.latitude,
+                prediction_params.longitude,
+                prediction_params.lte_rsrp,
+                prediction_params.nr_ssRsrp,
+                prediction_params.moving_speed,
+                prediction_params.compass_direction
             ]]
         )
-        input_data = input_data.reshape((1, 1, 6))
-        return self.predict(self.model_id, input_data)
+
+        logging.debug(f"About to perform a prediction with the following inputs: {input_data.flatten()}")
+        return self.perform_ml_model_prediction(input_data, (1, 1, 6))
 
     async def predict_and_send(self):
         while True:
             prediction_data_to_delete = []
             for supi, parameters in self.pending_predictions.items():
                 if parameters.is_ready and parameters.correlation_id is not None:
-                    prediction_tuple = self.perform_prediction(parameters)
-                    predicted_throughput = prediction_tuple[0][0, 0]
-                    logging.info(
-                        f"Predicted throughput for UE '{supi}' in {PREDICTION_TIME_STEP}s: {abs(predicted_throughput):.2f} Kbps (prediction took {prediction_tuple[1]:.0f} ms)")
+                    prediction = self.perform_prediction(parameters)
+                    if prediction is not None:
+                        predicted_throughput = abs(float(prediction[0, 0]))
+                        logging.info(
+                            f"Predicted throughput for UE '{supi}': {predicted_throughput} Kbps")
 
-                    # Send the analytics notification
-                    self.send_analytics_notification(parameters.correlation_id,
-                                                     get_analytics_notification_payload(supi,
-                                                                                        predicted_throughput))
-                    logging.info(f"Sending 'UE_LOC_THROUGHPUT' notification: SUPI='{supi}', "
-                                 f"Throughput={abs(predicted_throughput):.2f} Kbps")
+                        # Send the analytics notification
+                        self.send_analytics_notification(parameters.correlation_id,
+                                                         get_analytics_notification_payload(supi,
+                                                                                            predicted_throughput))
+                        logging.info(f"Sending 'UE_LOC_THROUGHPUT' notification: SUPI='{supi}', "
+                                     f"Throughput={abs(predicted_throughput):.2f} Kbps")
+                    else:
+                        logging.error("Could not perform prediction, the model is unavailable")
                     prediction_data_to_delete.append(supi)
 
             for supi in prediction_data_to_delete:
@@ -255,6 +240,14 @@ class ThroughputAnlfService(AnlfService):
 
             await asyncio.sleep(0.3)
 
+    async def ml_model_provision_sub(self):
+        while not self._is_ready:
+            await asyncio.sleep(0.5)
+        logging.info("Sending an ML model provision request to the MTLF")
+        self.request_ml_model_provision("throughput-anlf")
+
+    @override
     async def start(self):
         self._tasks.append(asyncio.create_task(self.predict_and_send()))
+        self._tasks.append(asyncio.create_task(self.ml_model_provision_sub()))
         await super().start()
