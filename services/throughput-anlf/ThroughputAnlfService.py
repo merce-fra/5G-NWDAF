@@ -5,7 +5,6 @@ from enum import Enum
 from typing import override
 
 import numpy as np
-from keras.src.trainers.trainer import Trainer
 from nwdaf_api import MLEventNotif
 from nwdaf_api.models import (
     NFType,
