@@ -1,11 +1,12 @@
 import asyncio
 import logging
-from dataclasses import dataclass
 from enum import Enum
-from typing import override
+from typing import override, Optional
 
 import numpy as np
-from nwdaf_api import MLEventNotif
+
+from pydantic import BaseModel
+
 from nwdaf_api.models import (
     NFType,
     NnwdafEventsSubscription,
@@ -20,59 +21,11 @@ from nwdaf_api.models import (
     PredictedThroughputInfo,
     RanEvent,
     RanEventSubscription,
-    RanEventExposureNotification
+    RanEventExposureNotification,
+    MLEventNotif
 )
 from nwdaf_libcommon.AnlfService import AnlfService
-from pydantic import BaseModel
-
-
-def get_value_or_default(value, default=0):
-    return value if value is not None else default
-
-
-def get_gmlc_subscription_payload(sub_id: str, supi: str) -> InputData:
-    """
-    Creates a GMLC subscription payload.
-
-    Args:
-        sub_id (str): The subscription ID.
-        supi (str): The SUPI (Subscriber Permanent Identifier).
-
-    Returns:
-        InputData: The GMLC subscription payload.
-    """
-    return InputData(supi=supi,
-                     ldr_reference=sub_id,
-                     external_client_type=ExternalClientType.VALUE_ADDED_SERVICES,
-                     periodic_event_info=PeriodicEventInfo(reporting_amount=1,
-                                                           reporting_interval=10,
-                                                           reporting_infinite_ind=True),
-                     location_type_requested=LocationTypeRequested.CURRENT_LOCATION)
-
-
-def get_ran_subscription_payload(sub_id: str, supi: str) -> RanEventSubscription:
-    return RanEventSubscription(event=RanEvent.RSRP_INFO,
-                                correlation_id=sub_id,
-                                notif_uri="myUri",
-                                ue_ids=[supi],
-                                periodicity=10)
-
-
-def get_analytics_notification_payload(supi: str, throughput: float) -> EventNotification:
-    """
-    Creates an analytics notification payload.
-
-    Args:
-        supi (str): The SUPI (Subscriber Permanent Identifier).
-        throughput (float): The predicted throughput.
-
-    Returns:
-        EventNotification: The analytics notification payload.
-    """
-    predicted_throughput_info = PredictedThroughputInfo(supi=supi,
-                                                        throughput=f"{throughput:.2f} Kbps")
-    return EventNotification(event=NwdafEvent.UE_LOC_THROUGHPUT,
-                             predicted_throughput_infos=[predicted_throughput_info])
+from ThroughputSubscriptionFSM import ThroughputSubscriptionFSM, States, Transitions
 
 
 class ThroughputAnlfService(AnlfService):
@@ -80,18 +33,13 @@ class ThroughputAnlfService(AnlfService):
     A service for handling UE_LOC_THROUGHPUT analytics.
     """
 
-    @dataclass
-    class PredictionNotificationParameters:
-        latitude: float = 0.0
-        longitude: float = 0.0
-        moving_speed: float = 0.0
-        compass_direction: int = 0
-        lte_rsrp: float = 0.0
-        nr_ssRsrp: float = 0.0
-        correlation_id: str = "id"
-        is_ready: bool = False
-
-    pending_predictions = dict[str, PredictionNotificationParameters]
+    class ThroughputSubscriptionData:
+        def __init__(self, sub_id: str, supi: str):
+            self.sub_id: str = sub_id
+            self.supi: str = supi
+            self.pending_gmlc_data: Optional[tuple[float, float, float, int]] = None
+            self.pending_ran_data: Optional[tuple[float, float]] = None
+            self.pending_throughput_prediction: Optional[float] = None
 
     def __init__(self) -> None:
         """
@@ -102,7 +50,8 @@ class ThroughputAnlfService(AnlfService):
                          NwdafEvent.UE_LOC_THROUGHPUT,
                          {(NFType.GMLC, EventNotifyDataType.PERIODIC), (NFType.RAN, RanEvent.RSRP_INFO)})
 
-        self.pending_predictions = dict()
+        self.subscription_fsms: dict[
+            ThroughputAnlfService.ThroughputSubscriptionData, ThroughputSubscriptionFSM] = {}
         logging.info(f"AnLF service '{self._service_name}' is ready")
 
     @override
@@ -126,15 +75,38 @@ class ThroughputAnlfService(AnlfService):
             event_sub_dict = event_sub.model_dump(exclude_unset=True)
             logging.info(
                 f"Created a new analytics subscription for '{event_sub_dict['event'].value}': SUPIs={event_sub_dict['tgt_ue']['supis']}")
-            # Send one subscription request per SUPI to the GMLC, and one to the RAN
+
+            # Create an FSM for each subscription
             for supi in event_sub.tgt_ue.supis:
-                logging.info(
-                    f"Sending a periodic location request to the GMLC for UE '{supi}', CORRELATION_ID={sub_id}")
-                self.send_event_exposure_subscription(NFType.GMLC, EventNotifyDataType.PERIODIC,
-                                                      get_gmlc_subscription_payload(sub_id, supi))
-                logging.info(f"Sending a RSRP info subscription to the RAN for UE '{supi}', CORRELATION_ID={sub_id}")
-                self.send_event_exposure_subscription(NFType.RAN, RanEvent.RSRP_INFO,
-                                                      get_ran_subscription_payload(sub_id, supi))
+                sub_data = self.ThroughputSubscriptionData(sub_id, supi)
+                self.subscription_fsms[sub_data] = ThroughputSubscriptionFSM()
+
+    def initialize_subscription(self, sub_id: str, supi: str):
+        # Send GMLC and RAN event exposure subscriptions
+        logging.info(
+            f"Sending a periodic location request to the GMLC for UE '{supi}', CORRELATION_ID={sub_id}")
+        self.send_event_exposure_subscription(NFType.GMLC, EventNotifyDataType.PERIODIC,
+                                              InputData(supi=supi,
+                                                        ldr_reference=sub_id,
+                                                        external_client_type=ExternalClientType.VALUE_ADDED_SERVICES,
+                                                        periodic_event_info=PeriodicEventInfo(reporting_amount=1,
+                                                                                              reporting_interval=10,
+                                                                                              reporting_infinite_ind=True),
+                                                        location_type_requested=LocationTypeRequested.CURRENT_LOCATION))
+        logging.info(f"Sending a RSRP info subscription to the RAN for UE '{supi}', CORRELATION_ID={sub_id}")
+        self.send_event_exposure_subscription(NFType.RAN, RanEvent.RSRP_INFO,
+                                              RanEventSubscription(event=RanEvent.RSRP_INFO,
+                                                                   correlation_id=sub_id,
+                                                                   notif_uri="myUri",
+                                                                   ue_ids=[supi],
+                                                                   periodicity=10))
+
+    def retrieve_sub_data(self, sub_id: str, supi: str) -> Optional[ThroughputSubscriptionData]:
+        for sub_data, _fsm in self.subscription_fsms.items():
+            if sub_data.sub_id == sub_id and sub_data.supi == supi:
+                return sub_data
+
+        return None
 
     @override
     def on_event_exposure_data(self, nf_type: NFType, event_type: Enum, data: BaseModel):
@@ -171,15 +143,13 @@ class ThroughputAnlfService(AnlfService):
         moving_speed = velocity_estimate.h_speed
         compass_direction = velocity_estimate.bearing
 
-        if ue_location_notification.supi not in self.pending_predictions:
-            self.pending_predictions[ue_location_notification.supi] = self.PredictionNotificationParameters()
-
-        prediction_params = self.pending_predictions[ue_location_notification.supi]
-        prediction_params.latitude = latitude
-        prediction_params.longitude = longitude
-        prediction_params.moving_speed = moving_speed
-        prediction_params.compass_direction = compass_direction
-        prediction_params.correlation_id = ue_location_notification.ldr_reference
+        sub_id = ue_location_notification.ldr_reference
+        supi = ue_location_notification.supi
+        sub_data = self.retrieve_sub_data(sub_id, supi)
+        if sub_data is not None:
+            sub_data.pending_gmlc_data = (latitude, longitude, moving_speed, compass_direction)
+        else:
+            logging.error(f"Could not find subscription data for ID '{sub_id}' and SUPI '{supi}'")
 
     def on_ran_rsrp_info_received(self, ran_notification: RanEventExposureNotification):
         for rsrp_info in ran_notification.rsrp_infos:
@@ -188,56 +158,13 @@ class ThroughputAnlfService(AnlfService):
                          f"NR_SS_RSRP={rsrp_info.nr_ss_rsrp:.2f} dB, "
                          f"CORRELATION_ID={ran_notification.correlation_id}")
 
-            if rsrp_info.ue_id not in self.pending_predictions:
-                self.pending_predictions[rsrp_info.ue_id] = self.PredictionNotificationParameters()
-
-            prediction_params = self.pending_predictions[rsrp_info.ue_id]
-            prediction_params.lte_rsrp = rsrp_info.lte_rsrp
-            prediction_params.nr_ssRsrp = rsrp_info.nr_ss_rsrp
-            prediction_params.correlation_id = ran_notification.correlation_id
-
-            prediction_params.is_ready = True
-
-    def perform_prediction(self, prediction_params: PredictionNotificationParameters):
-        input_data = np.array(
-            [[
-                prediction_params.latitude,
-                prediction_params.longitude,
-                prediction_params.lte_rsrp,
-                prediction_params.nr_ssRsrp,
-                prediction_params.moving_speed,
-                prediction_params.compass_direction
-            ]]
-        )
-
-        logging.debug(f"About to perform a prediction with the following inputs: {input_data.flatten()}")
-        return self.perform_ml_model_prediction(input_data, (1, 1, 6))
-
-    async def predict_and_send(self):
-        while True:
-            prediction_data_to_delete = []
-            for supi, parameters in self.pending_predictions.items():
-                if parameters.is_ready and parameters.correlation_id is not None:
-                    prediction = self.perform_prediction(parameters)
-                    if prediction is not None:
-                        predicted_throughput = abs(float(prediction[0, 0]))
-                        logging.info(
-                            f"Predicted throughput for UE '{supi}': {predicted_throughput} Kbps")
-
-                        # Send the analytics notification
-                        self.send_analytics_notification(parameters.correlation_id,
-                                                         get_analytics_notification_payload(supi,
-                                                                                            predicted_throughput))
-                        logging.info(f"Sending 'UE_LOC_THROUGHPUT' notification: SUPI='{supi}', "
-                                     f"Throughput={abs(predicted_throughput):.2f} Kbps")
-                    else:
-                        logging.error("Could not perform prediction, the model is unavailable")
-                    prediction_data_to_delete.append(supi)
-
-            for supi in prediction_data_to_delete:
-                del self.pending_predictions[supi]
-
-            await asyncio.sleep(0.3)
+            sub_id = ran_notification.correlation_id
+            supi = rsrp_info.ue_id
+            sub_data = self.retrieve_sub_data(sub_id, supi)
+            if sub_data is not None:
+                sub_data.pending_ran_data = (rsrp_info.lte_rsrp, rsrp_info.nr_ss_rsrp)
+            else:
+                logging.error(f"Could not find subscription data for ID '{sub_id}' and SUPI '{supi}'")
 
     async def ml_model_provision_sub(self):
         while not self._is_ready:
@@ -245,8 +172,68 @@ class ThroughputAnlfService(AnlfService):
         logging.info("Sending an ML model provision request to the MTLF")
         self.request_ml_model_provision("throughput-anlf")
 
+    def predict_throughput(self, sub_data: ThroughputSubscriptionData):
+        input_data = np.array(
+            [[
+                sub_data.pending_gmlc_data[0],  # Latitude
+                sub_data.pending_gmlc_data[1],  # Longitude
+                sub_data.pending_ran_data[0],  # LTE RSRP
+                sub_data.pending_ran_data[1],  # NR SS RSRP
+                sub_data.pending_gmlc_data[2],  # Moving speed
+                sub_data.pending_gmlc_data[3]  # Compass direction
+            ]]
+        )
+
+        logging.debug(f"About to perform a prediction with the following inputs: {input_data.flatten()}")
+        return self.perform_ml_model_prediction(input_data, (1, 1, 6))
+
+    async def fsm_loop(self, tick_duration: float = 0.3):
+        while True:
+            for sub_data, subscription_fsm in self.subscription_fsms.items():
+                match subscription_fsm.current_state:
+
+                    case States.INITIALIZING:
+                        self.initialize_subscription(sub_data.sub_id, sub_data.supi)
+                        subscription_fsm.transition(Transitions.INITIALIZATION_DONE)
+
+                    case States.WAITING_FOR_GMLC_NOTIF:
+                        if sub_data.pending_ran_data is not None and sub_data.pending_gmlc_data is not None:
+                            subscription_fsm.transition(Transitions.ALL_NOTIFS_RECEIVED)
+                        elif sub_data.pending_ran_data is None:
+                            subscription_fsm.transition(Transitions.WAITING_FOR_NOTIFS)
+                        elif sub_data.pending_gmlc_data is None:
+                            continue
+
+                    case States.WAITING_FOR_RAN_NOTIF:
+                        if sub_data.pending_gmlc_data is not None and sub_data.pending_ran_data is not None:
+                            subscription_fsm.transition(Transitions.ALL_NOTIFS_RECEIVED)
+                        elif sub_data.pending_gmlc_data is None:
+                            subscription_fsm.transition(Transitions.WAITING_FOR_NOTIFS)
+                        elif sub_data.pending_ran_data is None:
+                            continue
+
+                    case States.PREDICTING_THROUGHPUT:
+                        predicted_throughput = self.predict_throughput(sub_data)
+                        if predicted_throughput is not None:
+                            sub_data.pending_throughput_prediction = abs(float(predicted_throughput[0, 0]))
+                            sub_data.pending_gmlc_data = None
+                            sub_data.pending_ran_data = None
+                            subscription_fsm.transition(Transitions.PREDICTION_DONE)
+
+                    case States.SENDING_ANALYTICS_NOTIF:
+                        self.send_analytics_notification(sub_data.sub_id,
+                                                         EventNotification(event=NwdafEvent.UE_LOC_THROUGHPUT,
+                                                                           predicted_throughput_infos=[
+                                                                               PredictedThroughputInfo(
+                                                                                   supi=sub_data.supi,
+                                                                                   throughput=f"{sub_data.pending_throughput_prediction:.2f} Kbps")]))
+                        sub_data.pending_throughput_prediction = None
+                        subscription_fsm.transition(Transitions.ANALYTICS_NOTIF_SENT)
+
+            await asyncio.sleep(tick_duration)
+
     @override
     async def start(self):
-        self._tasks.append(asyncio.create_task(self.predict_and_send()))
+        self._tasks.append(asyncio.create_task(self.fsm_loop()))
         self._tasks.append(asyncio.create_task(self.ml_model_provision_sub()))
         await super().start()
