@@ -3,10 +3,6 @@ import logging
 from enum import Enum
 from typing import override, Optional
 
-import numpy as np
-
-from pydantic import BaseModel
-
 from nwdaf_api.models import (
     NFType,
     NnwdafEventsSubscription,
@@ -25,23 +21,19 @@ from nwdaf_api.models import (
     MLEventNotif
 )
 from nwdaf_libcommon.AnlfService import AnlfService
+from pydantic import BaseModel
+
 from ThroughputSubscriptionFSM import ThroughputSubscriptionFSM, States, Transitions
+from ThroughputSubscriptionData import ThroughputSubscriptionData
+from ThroughputSubscriptionRegistry import ThroughputSubscriptionRegistry
 
 
 class ThroughputAnlfService(AnlfService):
     """
-    A service for handling UE_LOC_THROUGHPUT analytics.
+    An AnLF service for handling UE_LOC_THROUGHPUT analytics.
     """
 
-    class ThroughputSubscriptionData:
-        def __init__(self, sub_id: str, supi: str):
-            self.sub_id: str = sub_id
-            self.supi: str = supi
-            self.pending_gmlc_data: Optional[tuple[float, float, float, int]] = None
-            self.pending_ran_data: Optional[tuple[float, float]] = None
-            self.pending_throughput_prediction: Optional[float] = None
-
-    def __init__(self) -> None:
+    def __init__(self):
         """
         Initializes the service.
         """
@@ -50,8 +42,7 @@ class ThroughputAnlfService(AnlfService):
                          NwdafEvent.UE_LOC_THROUGHPUT,
                          {(NFType.GMLC, EventNotifyDataType.PERIODIC), (NFType.RAN, RanEvent.RSRP_INFO)})
 
-        self.subscription_fsms: dict[
-            ThroughputAnlfService.ThroughputSubscriptionData, ThroughputSubscriptionFSM] = {}
+        self.subscription_registry = ThroughputSubscriptionRegistry()
         logging.info(f"AnLF service '{self._service_name}' is ready")
 
     @override
@@ -60,7 +51,7 @@ class ThroughputAnlfService(AnlfService):
         self.initialize_ml_model(notification.m_l_file_addr.m_l_model_url)
 
     @override
-    def on_analytics_subscription_created(self, sub_id: str, sub: NnwdafEventsSubscription) -> None:
+    def on_analytics_subscription_created(self, sub_id: str, sub: NnwdafEventsSubscription):
         """
         Handles the creation of a subscription.
 
@@ -78,8 +69,8 @@ class ThroughputAnlfService(AnlfService):
 
             # Create an FSM for each subscription
             for supi in event_sub.tgt_ue.supis:
-                sub_data = self.ThroughputSubscriptionData(sub_id, supi)
-                self.subscription_fsms[sub_data] = ThroughputSubscriptionFSM()
+                self.subscription_registry.add_subscription(ThroughputSubscriptionData(sub_id, supi),
+                                                            ThroughputSubscriptionFSM())
 
     def initialize_subscription(self, sub_id: str, supi: str):
         # Send GMLC and RAN event exposure subscriptions
@@ -101,13 +92,6 @@ class ThroughputAnlfService(AnlfService):
                                                                    ue_ids=[supi],
                                                                    periodicity=10))
 
-    def retrieve_sub_data(self, sub_id: str, supi: str) -> Optional[ThroughputSubscriptionData]:
-        for sub_data, _fsm in self.subscription_fsms.items():
-            if sub_data.sub_id == sub_id and sub_data.supi == supi:
-                return sub_data
-
-        return None
-
     @override
     def on_event_exposure_data(self, nf_type: NFType, event_type: Enum, data: BaseModel):
         if isinstance(data, EventNotifyDataExt):
@@ -118,7 +102,7 @@ class ThroughputAnlfService(AnlfService):
             logging.warning(
                 f"This AnLF cannot handle this type of notification: {data.model_dump_json(exclude_unset=True)}")
 
-    def on_ue_location_received(self, ue_location_notification: EventNotifyDataExt) -> None:
+    def on_ue_location_received(self, ue_location_notification: EventNotifyDataExt):
         """
         Handles the reception of a UE location notification.
 
@@ -145,7 +129,7 @@ class ThroughputAnlfService(AnlfService):
 
         sub_id = ue_location_notification.ldr_reference
         supi = ue_location_notification.supi
-        sub_data = self.retrieve_sub_data(sub_id, supi)
+        sub_data = self.subscription_registry.get_subscription_data(sub_id, supi)
         if sub_data is not None:
             sub_data.pending_gmlc_data = (latitude, longitude, moving_speed, compass_direction)
         else:
@@ -160,7 +144,7 @@ class ThroughputAnlfService(AnlfService):
 
             sub_id = ran_notification.correlation_id
             supi = rsrp_info.ue_id
-            sub_data = self.retrieve_sub_data(sub_id, supi)
+            sub_data = self.subscription_registry.get_subscription_data(sub_id, supi)
             if sub_data is not None:
                 sub_data.pending_ran_data = (rsrp_info.lte_rsrp, rsrp_info.nr_ss_rsrp)
             else:
@@ -172,50 +156,34 @@ class ThroughputAnlfService(AnlfService):
         logging.info("Sending an ML model provision request to the MTLF")
         self.request_ml_model_provision("throughput-anlf")
 
-    def predict_throughput(self, sub_data: ThroughputSubscriptionData):
-        input_data = np.array(
-            [[
-                sub_data.pending_gmlc_data[0],  # Latitude
-                sub_data.pending_gmlc_data[1],  # Longitude
-                sub_data.pending_ran_data[0],  # LTE RSRP
-                sub_data.pending_ran_data[1],  # NR SS RSRP
-                sub_data.pending_gmlc_data[2],  # Moving speed
-                sub_data.pending_gmlc_data[3]  # Compass direction
-            ]]
-        )
+    def predict_throughput(self, sub_data: ThroughputSubscriptionData) -> Optional[float]:
+        input_data = sub_data.to_input_array()
 
         logging.debug(f"About to perform a prediction with the following inputs: {input_data.flatten()}")
-        return self.perform_ml_model_prediction(input_data, (1, 1, 6))
+        prediction = self.perform_ml_model_prediction(input_data, (1, 1, 6))
+        return None if prediction is None else abs(float(prediction[0, 0]))
 
     async def fsm_loop(self, tick_duration: float = 0.3):
         while True:
-            for sub_data, subscription_fsm in self.subscription_fsms.items():
+            for sub_data in self.subscription_registry.get_all_subscriptions():
+                subscription_fsm = self.subscription_registry.get_fsm(sub_data)
                 match subscription_fsm.current_state:
 
                     case States.INITIALIZING:
                         self.initialize_subscription(sub_data.sub_id, sub_data.supi)
                         subscription_fsm.transition(Transitions.INITIALIZATION_DONE)
 
-                    case States.WAITING_FOR_GMLC_NOTIF:
-                        if sub_data.pending_ran_data is not None and sub_data.pending_gmlc_data is not None:
+                    case States.WAITING_FOR_GMLC_NOTIF | States.WAITING_FOR_RAN_NOTIF:
+                        if sub_data.pending_ran_data and sub_data.pending_gmlc_data:
                             subscription_fsm.transition(Transitions.ALL_NOTIFS_RECEIVED)
-                        elif sub_data.pending_ran_data is None:
+                        else:
                             subscription_fsm.transition(Transitions.WAITING_FOR_NOTIFS)
-                        elif sub_data.pending_gmlc_data is None:
-                            continue
-
-                    case States.WAITING_FOR_RAN_NOTIF:
-                        if sub_data.pending_gmlc_data is not None and sub_data.pending_ran_data is not None:
-                            subscription_fsm.transition(Transitions.ALL_NOTIFS_RECEIVED)
-                        elif sub_data.pending_gmlc_data is None:
-                            subscription_fsm.transition(Transitions.WAITING_FOR_NOTIFS)
-                        elif sub_data.pending_ran_data is None:
                             continue
 
                     case States.PREDICTING_THROUGHPUT:
                         predicted_throughput = self.predict_throughput(sub_data)
                         if predicted_throughput is not None:
-                            sub_data.pending_throughput_prediction = abs(float(predicted_throughput[0, 0]))
+                            sub_data.pending_throughput_prediction = predicted_throughput
                             sub_data.pending_gmlc_data = None
                             sub_data.pending_ran_data = None
                             subscription_fsm.transition(Transitions.PREDICTION_DONE)
