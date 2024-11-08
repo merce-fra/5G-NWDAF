@@ -20,8 +20,12 @@ from nwdaf_api import (
     NwdafEvent
 )
 
-log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+# Log level
+log_level = os.getenv('TOPICS_INIT_LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(level=getattr(logging, log_level), format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Kafka boostrap server
+kafka_bootstrap_server = os.getenv('KAFKA_BOOTSTRAP_SERVER')
 
 shutdown_flag = False
 
@@ -102,13 +106,12 @@ def register_signal_handlers():
 
 def main():
     global shutdown_flag
-    bootstrap_server = "kafka:19092"
 
     register_signal_handlers()
 
     try:
-        wait_for_kafka(bootstrap_server)
-        admin_client = AdminClient({'bootstrap.servers': bootstrap_server})
+        wait_for_kafka(kafka_bootstrap_server)
+        admin_client = AdminClient({'bootstrap.servers': kafka_bootstrap_server})
 
         topic_list = []
         topic_list.extend(get_topic_names("Control.NwdafEventSubscription", NwdafEvent))

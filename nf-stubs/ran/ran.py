@@ -28,8 +28,15 @@ from nwdaf_api.models import (
 from pydantic import BaseModel, ValidationError
 from starlette import status
 
-log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+# Log level
+log_level = os.getenv('RAN_LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(level=getattr(logging, log_level), format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Service name
+service_name = os.getenv('RAN_SERVICE_NAME')
+
+# Service port
+service_port = int(os.getenv('RAN_SERVICE_PORT'))
 
 
 @asynccontextmanager
@@ -60,8 +67,6 @@ next_data: Optional[RanData] = None
 
 app = FastAPI(lifespan=lifespan)
 
-service_name = "ran"
-port = 10007
 rsrp_subscriptions: dict[str, RanSubscriptionData] = dict()
 
 BaseModel.Config = type('Config', (), {
@@ -85,7 +90,7 @@ async def ran_ee_subscription_handler(ran_sub: RanEventSubscription):
                     content=ran_sub.model_dump_json(exclude_unset=True),
                     media_type="application/json",
                     headers={
-                        "Location": f"http://{service_name}:{port}/ran-event-exposure/v1/subscriptions/{subscription_id}"})
+                        "Location": f"http://{service_name}:{service_port}/ran-event-exposure/v1/subscriptions/{subscription_id}"})
 
 
 @app.post("/data")
@@ -171,4 +176,4 @@ async def notify(subscription_id: str, ran_sub: RanEventSubscription):
 
 
 if __name__ == '__main__':
-    uvicorn.run(app, host='0.0.0.0', port=port, log_level='warning', loop='asyncio')
+    uvicorn.run(app, host='0.0.0.0', port=service_port, log_level='warning', loop='asyncio')

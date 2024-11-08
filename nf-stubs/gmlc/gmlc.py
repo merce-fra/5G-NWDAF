@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import os
 import random
@@ -17,7 +16,7 @@ import uvicorn
 
 logging.getLogger("uvicorn").setLevel(logging.WARNING)
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from nwdaf_api.models.event_notify_data_ext import EventNotifyDataExt
 from nwdaf_api.models.event_notify_data_type import EventNotifyDataType
 from nwdaf_api.models.geographical_coordinates import GeographicalCoordinates
@@ -30,8 +29,12 @@ from nwdaf_api.models.supported_gad_shapes import SupportedGADShapes
 from pydantic import BaseModel
 from starlette import status
 
-log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+# Log level
+log_level = os.getenv('GMLC_LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(level=getattr(logging, log_level), format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Service port
+service_port = int(os.getenv('GMLC_SERVICE_PORT'))
 
 
 @asynccontextmanager
@@ -55,8 +58,6 @@ class GmlcSubscriptionData:
 
 app = FastAPI(lifespan=lifespan)
 
-service_name = "gmlc"
-port = 10006
 location_subscriptions: dict[str, GmlcSubscriptionData] = dict()
 
 BaseModel.Config = type('Config', (), {
@@ -184,4 +185,4 @@ async def notify(subscription_id: str, input_data: InputData):
 
 
 if __name__ == '__main__':
-    uvicorn.run(app, host='0.0.0.0', port=port, log_level='warning', loop='asyncio')
+    uvicorn.run(app, host='0.0.0.0', port=service_port, log_level='warning', loop='asyncio')

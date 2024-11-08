@@ -33,12 +33,12 @@ class ThroughputAnlfService(AnlfService):
     An AnLF service for handling UE_LOC_THROUGHPUT analytics.
     """
 
-    def __init__(self):
+    def __init__(self, service_name: str, kafka_botstrap_server: str):
         """
         Initializes the service.
         """
-        super().__init__("throughput-anlf",
-                         "kafka:19092",
+        super().__init__(service_name,
+                         kafka_botstrap_server,
                          NwdafEvent.UE_LOC_THROUGHPUT,
                          {(NFType.GMLC, EventNotifyDataType.PERIODIC), (NFType.RAN, RanEvent.RSRP_INFO)})
 
@@ -154,7 +154,7 @@ class ThroughputAnlfService(AnlfService):
         while not self._is_ready:
             await asyncio.sleep(0.5)
         logging.info("Sending an ML model provision request to the MTLF")
-        self.request_ml_model_provision("throughput-anlf")
+        self.request_ml_model_provision("thr-anlf")
 
     def predict_throughput(self, sub_data: ThroughputSubscriptionData) -> Optional[float]:
         input_data = sub_data.to_input_array()
@@ -194,7 +194,7 @@ class ThroughputAnlfService(AnlfService):
                                                                            predicted_throughput_infos=[
                                                                                PredictedThroughputInfo(
                                                                                    supi=sub_data.supi,
-                                                                                   throughput=f"{sub_data.pending_throughput_prediction:.2f} Kbps")]))
+                                                                                   throughput=f"{sub_data.pending_throughput_prediction:.2f} Mbps")]))
                         sub_data.pending_throughput_prediction = None
                         subscription_fsm.transition(Transitions.ANALYTICS_NOTIF_SENT)
 

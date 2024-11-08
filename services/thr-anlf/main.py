@@ -5,10 +5,17 @@ import sys
 
 from ThroughputAnlfService import ThroughputAnlfService
 
-log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+# Log level
+log_level = os.getenv('THR_ANLF_LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(level=getattr(logging, log_level), format='%(asctime)s - %(levelname)s - %(message)s')
 
-service = ThroughputAnlfService()
+# Kafka boostrap server
+kafka_bootstrap_server = os.getenv('KAFKA_BOOTSTRAP_SERVER')
+
+# Service name
+service_name = os.getenv('THR_ANLF_SERVICE_NAME')
+
+service = ThroughputAnlfService(service_name, kafka_bootstrap_server)
 
 
 def handle_signal(sig, _frame):

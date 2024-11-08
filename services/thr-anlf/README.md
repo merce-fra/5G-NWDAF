@@ -7,27 +7,24 @@ architecture. It uses an [_LSTM_ model](https://merce-gitlab.fr-merce.mee.com/gi
 a throughput value based on data collected from the _[GMLC](https://en.wikipedia.org/wiki/GMLC)_ and the
 _[RAN](https://en.wikipedia.org/wiki/Radio_access_network)_.
 
-## Pre-requisites
-
-To use the `ThroughputAnlfService`, you need to have the following pre-requisites:
+## Requirements
 
 * _Python_ ≥ 3.12 (preferably in a _virtualenv_, or using [Conda](https://anaconda.org/anaconda/conda))
-
-You can then install the required third-party library with this command:
-
-```bash
-pip install -r requirements.txt
-````
+* [nwdaf-api](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-3gpp-apis)
+* [nwdaf-libcommon](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-libcommon)
+* [FastAPI](https://github.com/fastapi/fastapi)
 
 # How does it work?
 
 Basic _AnLF_ operations (analytics subscription CRUD operations, event exposure mechanics, analytics delivery, _ML_
 model provisioning, etc.) are
-inherited from
-the [AnlfService](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-libcommon/-/blob/main/src/nwdaf_libcommon/AnlfService.py)
-class from the [nwdaf-libcommon](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-libcommon) library.
+inherited from the `AnlfService` class from
+the [nwdaf-libcommon](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-libcommon)
+library.
 
-Finite-state machines are used to handle subscriptions concurrently. Each subscription has its own [FSM](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-libcommon/-/blob/main/src/nwdaf_libcommon/FiniteStateMachine.py) with the
+Finite-state machines are used to handle subscriptions concurrently. Each subscription has its
+own [FSM](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-libcommon/-/blob/main/src/nwdaf_libcommon/FiniteStateMachine.py)
+with the
 following states and transitions:
 
 ```mermaid

@@ -9,8 +9,12 @@ from starlette import status
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Gauge
 
-log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+# Log level
+log_level = os.getenv('NOTIF_CLIENT_LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(level=getattr(logging, log_level), format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Service port
+service_port = int(os.getenv('NOTIF_CLIENT_SERVICE_PORT'))
 
 app = FastAPI()
 
@@ -19,9 +23,10 @@ instrumentator = Instrumentator()
 # Prometheus gauge for throughput
 predicted_throughput_gauge = Gauge(
     'predicted_throughput',
-    'Predicted throughput in Kbps',
+    'Predicted throughput in Mbps',
     ['supi']
 )
+
 
 @app.post("/analytics-notification", status_code=status.HTTP_204_NO_CONTENT)
 async def analytic_notif(notif: NnwdafEventsSubscriptionNotification):
@@ -32,9 +37,9 @@ async def analytic_notif(notif: NnwdafEventsSubscriptionNotification):
         if event.predicted_throughput_infos is not None:
             for info in event.predicted_throughput_infos:
                 supi = info.supi
-                throughput_value = float(info.throughput.replace(" Kbps", "").strip())
+                throughput_value = float(info.throughput.replace(" Mbps", "").strip())
                 predicted_throughput_gauge.labels(supi=supi).set(throughput_value)
-                logging.info(f"Updated predicted throughput for {supi}: {throughput_value} Kbps")
+                logging.info(f"Updated predicted throughput for {supi}: {throughput_value} Mbps")
 
     return
 
@@ -56,6 +61,6 @@ if __name__ == '__main__':
     instrumentator.instrument(app).expose(app)
 
     try:
-        uvicorn.run(app, host='0.0.0.0', port=8181, log_level='warning', loop='asyncio')
+        uvicorn.run(app, host='0.0.0.0', port=service_port, log_level='warning', loop='asyncio')
     except KeyboardInterrupt:
         logging.info("Application stopped")

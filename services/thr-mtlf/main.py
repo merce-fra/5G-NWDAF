@@ -5,10 +5,17 @@ import sys
 
 from ThroughputMtlfService import ThroughputMtlfService
 
-log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+# Log level
+log_level = os.getenv('THR_MTLF_LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(level=getattr(logging, log_level), format='%(asctime)s - %(levelname)s - %(message)s')
 
-service = ThroughputMtlfService()
+# Kafka boostrap server
+kafka_bootstrap_server = os.getenv('KAFKA_BOOTSTRAP_SERVER')
+
+# Service name
+service_name = os.getenv('THR_MTLF_SERVICE_NAME')
+
+service = ThroughputMtlfService(service_name, kafka_bootstrap_server)
 
 
 def handle_signal(sig, _frame):

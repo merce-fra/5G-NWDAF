@@ -12,8 +12,8 @@ from typing_extensions import override
 
 class ThroughputMtlfService(MtlfService):
 
-    def __init__(self):
-        super().__init__("mtlf", "kafka:19092", NwdafEvent.UE_LOC_THROUGHPUT)
+    def __init__(self, service_name: str, kafka_bootstrap_server: str):
+        super().__init__(service_name, kafka_bootstrap_server, NwdafEvent.UE_LOC_THROUGHPUT)
 
     @override
     def on_ml_provision_subscription_created(self, sub_id: str, sub: MLEventSubscription):
