@@ -14,12 +14,6 @@ RUN if [ -z "${SCRIPT_NAME}" ]; then echo "ERROR: SCRIPT_NAME is not set"; exit 
     if [ -z "${GITLAB_TOKEN_NAME}" ]; then echo "ERROR: GITLAB_TOKEN_NAME is not set"; exit 1; fi && \
     if [ -z "${GITLAB_TOKEN_VALUE}" ]; then echo "ERROR: GITLAB_TOKEN_VALUE is not set"; exit 1; fi
 
-# Install necessary tools
-ARG CACHEBUST=1
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
 # Add custom certificate
 COPY ./certificates/merce-gitlab-fr-merce-mee-com-chain.crt /usr/local/share/ca-certificates/
 RUN update-ca-certificates
@@ -38,8 +32,7 @@ COPY ${SERVICE_DIR}/ /app/
 # Install pip packages
 ENV PIP_ROOT_USER_ACTION=ignore
 RUN pip config set global.trusted-host "pypi.org merce-gitlab.fr-merce.mee.com" && \
-    pip install --upgrade pip && \
-    pip install --no-cache-dir --use-feature=fast-deps -r requirements.txt
+    pip --disable-pip-version-check install --no-compile --no-cache-dir --use-feature=fast-deps -r requirements.txt
 
 # Run the service
 ENV SCRIPT_NAME=${SCRIPT_NAME}

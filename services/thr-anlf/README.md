@@ -13,6 +13,9 @@ _[RAN](https://en.wikipedia.org/wiki/Radio_access_network)_.
 * [nwdaf-api](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-3gpp-apis)
 * [nwdaf-libcommon](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-libcommon)
 * [FastAPI](https://github.com/fastapi/fastapi)
+* [joblib](https://github.com/joblib/joblib)
+* [Tensorflow](https://github.com/tensorflow/tensorflow)
+* [Scikit Learn](https://github.com/scikit-learn/scikit-learn)
 
 # How does it work?
 
