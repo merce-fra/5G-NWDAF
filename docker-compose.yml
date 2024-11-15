@@ -47,7 +47,7 @@ services:
       - TOPICS_INIT_LOG_LEVEL=${TOPICS_INIT_LOG_LEVEL}
       - KAFKA_BOOTSTRAP_SERVER=${KAFKA_SERVICE_NAME}:${KAFKA_SERVICE_PORT}
     depends_on:
-      - kafka
+      - ${KAFKA_SERVICE_NAME}
     networks:
       - nwdaf-network
 
@@ -88,6 +88,10 @@ services:
       - API_GW_SERVICE_PORT=${API_GW_SERVICE_PORT}
       - API_GW_LOG_LEVEL=${API_GW_LOG_LEVEL}
       - KAFKA_BOOTSTRAP_SERVER=${KAFKA_SERVICE_NAME}:${KAFKA_SERVICE_PORT}
+      - GMLC_SERVICE_NAME=${GMLC_SERVICE_NAME}
+      - GMLC_SERVICE_PORT=${GMLC_SERVICE_PORT}
+      - RAN_SERVICE_NAME=${RAN_SERVICE_NAME}
+      - RAN_SERVICE_PORT=${RAN_SERVICE_PORT}
     depends_on:
       kafka-topics-init:
         condition: service_completed_successfully
