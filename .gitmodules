@@ -1,3 +1,0 @@
-[submodule "api-gateway"]
-	path = services/api-gateway
-	url = git@merce-gitlab.fr-merce.mee.com:artur/nwdaf-api-gateway.git
