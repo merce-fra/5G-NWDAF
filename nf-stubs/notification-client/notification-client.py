@@ -30,7 +30,7 @@ predicted_throughput_gauge = Gauge(
 
 @app.post("/analytics-notification", status_code=status.HTTP_204_NO_CONTENT)
 async def analytic_notif(notif: NnwdafEventsSubscriptionNotification):
-    logging.info(f"Received an analytics notification: {notif.model_dump_json(exclude_unset=True)}")
+    logging.debug(f"Received an analytics notification: {notif.model_dump_json(exclude_unset=True)}")
 
     # Update the Prometheus gauge
     for event in notif.event_notifications:

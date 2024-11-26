@@ -5,24 +5,11 @@ _git_.
 
 ## Table of Contents
 
-- [Description](#description)
 - [Pre-requisites](#pre-requisites)
 - [Clone](#clone)
 - [Configure](#configure)
 - [Build](#build)
 - [Deploy](#deploy)
-
-## Description
-
-The repository is composed of several submodules:
-
-| Submodule     | Description                                            | Directory       | Git URL                                                                                                                               |
-|---------------|--------------------------------------------------------|-----------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| *API Gateway* | _API Gateway_ service for *NWDAF*, written in _Python_ | `./api-gateway` | [git@merce-gitlab.fr-merce.mee.com:artur/nwdaf-api-gateway.git](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-api-gateway) |
-| *AnLF*        | *AnLF* service for *NWDAF*, written in *Python*        | `./anlf`        | [git@merce-gitlab.fr-merce.mee.com:artur/nwdaf-anlf.git](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-anlf)               |
-
-The _API Gateway_ and _AnLF_ services are built into their own _Docker_ containers, and then orchestrated with _Docker
-Compose_.
 
 ## Pre-requisites
 
