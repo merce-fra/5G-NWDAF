@@ -41,7 +41,7 @@ The project leverages two internal libraries:
       _[MERCE Python Packages](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/python-packages/-/packages)_ internal
       registry.
 
-2. `nwdaf-libcommon`, a package bases on
+2. `nwdaf-libcommon`, a package based on
    the [nwdaf-libcommon](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-libcommon) repository
     * Provides platform-level code to streamline the development of new _NWDAF_ services (e.g., _AnLF_, _MTLF_).
     * Includes utility functions, common patterns, and boilerplate code to minimize the effort required for
@@ -64,7 +64,7 @@ The system consists of multiple microservices, each with a specific role within 
 * [**Throughput AnLF**](./services/thr-anlf): Computes _UE_LOC_THROUGHPUT_ analytics using data collected from _GMLC_
   and _RAN_, and an _LSTM_
   model that
-  predicts throughput from location data. It is base on
+  predicts throughput from location data. It is based on
   the [
   _AnlfService_](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-libcommon/-/blob/main/src/nwdaf_libcommon/AnlfService.py)
   class from `nwdaf-libcommon`.
@@ -87,7 +87,7 @@ In addition to these main _NWDAF_ services, a whole set of additional services a
   generate random location data, or provide data received from the _CSV File Player_.
 * [**RAN**](./nf-stubs/ran): a _RAN_ stub serving a non-_3GPP_-compliant event exposure endpoint. It can either generate
   random _RSRP_ data, or provide data received from the _CSV File Player_.
-* [**CSV File Player**](./nf-stubs/csv_file_player): a service that reads a CSV file line by line and pushed the data to
+* [**CSV File Player**](./nf-stubs/csv_file_player): a service that reads a _CSV_ file line by line and pushed the data to
   other services (in our case, the _GMLC_ and the _RAN_ stubs). If this service is not running, the _NF_ stubs will use
   randomly
   generated data.
@@ -162,7 +162,7 @@ If everything goes well, your _NWDAF_ and all the aforementioned additional serv
 
 ## Test
 
-Here is an example analytics subscription payload that can be sent to the NWDAF in order to test it:
+Here is an example analytics subscription payload that can be sent to the _NWDAF_ in order to test it:
 
 > **POST 127.0.0.1:5000/nnwdaf-eventssubscription/v1/subscriptions**
 
