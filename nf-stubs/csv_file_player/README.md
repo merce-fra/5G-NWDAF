@@ -5,7 +5,7 @@ _RAN_) using _FastAPI_. It supports asynchronous background tasks for efficient 
 
 ## Pre-requisites
 
-* _Python_ ≥ 3.12 (use a virtual environment or Conda)
+* _Python_ ≥ 3.12 (preferably in a virtualenv, or using [Conda](https://anaconda.org/anaconda/conda))
 * _FastAPI_
 * _uvicorn_
 * _httpx_
