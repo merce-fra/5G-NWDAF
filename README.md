@@ -31,7 +31,7 @@ cd ./5g-nwdaf
 
 ## Dependencies
 
-The project leverages two internal libraries:
+The project uses two different internal libraries:
 
 1. `nwdaf-api`, a package based on
    the [nwdaf-3gpp-apis](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-3gpp-apis) repository
@@ -45,14 +45,20 @@ The project leverages two internal libraries:
    the [nwdaf-libcommon](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-libcommon) repository
     * Provides platform-level code to streamline the development of new _NWDAF_ services (e.g., _AnLF_, _MTLF_).
     * Includes utility functions, common patterns, and boilerplate code to minimize the effort required for
-      implementing new microservices.
+      implementing new microservices. It contains all the _Kafka_-related code.
     * Release managed by _CI/CD_ pipelines and distributed via the
       _[MERCE Python Packages](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/python-packages/-/packages)_ internal
       registry.
 
+You will need to have _[Docker](https://docs.docker.com/engine/install/ubuntu/)_ and
+_[Docker Compose](https://docs.docker.com/desktop/setup/install/linux/ubuntu/)_ installed on your system to build and
+deploy the _NWDAF_.
+
 ## Overview
 
-The system consists of multiple microservices, each with a specific role within the NWDAF ecosystem.
+### Services
+
+The project consists of multiple microservices, each with a specific role within the _NWDAF_ ecosystem.
 
 * [**API Gateway**](./services/api-gateway): Acts as the single point of entry for incoming _3GPP_-compliant requests,
   handling analytics
@@ -87,7 +93,8 @@ In addition to these main _NWDAF_ services, a whole set of additional services a
   generate random location data, or provide data received from the _CSV File Player_.
 * [**RAN**](./nf-stubs/ran): a _RAN_ stub serving a non-_3GPP_-compliant event exposure endpoint. It can either generate
   random _RSRP_ data, or provide data received from the _CSV File Player_.
-* [**CSV File Player**](./nf-stubs/csv_file_player): a service that reads a _CSV_ file line by line and pushed the data to
+* [**CSV File Player**](./nf-stubs/csv_file_player): a service that reads a _CSV_ file line by line and pushed the data
+  to
   other services (in our case, the _GMLC_ and the _RAN_ stubs). If this service is not running, the _NF_ stubs will use
   randomly
   generated data.
@@ -109,6 +116,11 @@ Finally, a few technical services are also deployed:
   used to read data pushed to _Prometheus_ by the _Notification Client_.
 * **Prometheus**: A metrics storage system that provides easy to use data push/pull mechanisms. In our case, it is
   simply used as a middle-man between the _Notification Client_ and _Grafana_.
+
+### Kafka
+
+All these services communicate with each other via _Apache Kafka_. The topics that are used and the way microservices
+interact with _Kafka_ are detailed in the [_Kafka_ Topics Specification](./docs/Kafka_Topics_Specification.md) document.
 
 ## Configure
 
@@ -140,9 +152,9 @@ API_GW_SERVICE_PORT = 5000
 API_GW_LOG_LEVEL = INFO
 ```
 
-## Build
+## Build _Docker_ images
 
-To build all the microservices, only one command is needed:
+To build all the microservices, run the following command:
 
 ```bash
 docker compose build
@@ -150,17 +162,17 @@ docker compose build
 
 If re-building the containers from scratch is needed, the `--no-cache` option can be passed to the command.
 
-## Deploy
+## Deploy the services
 
-To deploy the _NWDAF_, only one command is needed:
+This command deploys the _NWDAF_ and all the aforementioned additional services:
 
 ```bash
 docker compose up
 ```
 
-If everything goes well, your _NWDAF_ and all the aforementioned additional services should be deployed and functional.
+The `-d` option can be added if you want to run your _NWDAF_ in detached mode.
 
-## Test
+## How to test the analytics subscription?
 
 Here is an example analytics subscription payload that can be sent to the _NWDAF_ in order to test it:
 
@@ -183,5 +195,6 @@ Here is an example analytics subscription payload that can be sent to the _NWDAF
 }
 ```
 
-The _NWDAF_ should reply with a _3GPP_-compliant response, and analytics notifications should be sent periodically to the
+The _NWDAF_ should reply with a _3GPP_-compliant response, and analytics notifications should be sent periodically to
+the
 _Notification Client_ on port _8181_.
