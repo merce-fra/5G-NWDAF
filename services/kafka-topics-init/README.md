@@ -1,6 +1,6 @@
 # Kafka Topics Initialization service
 
-This service initializes _Kafka_ topics for a set of NWDAF-related events. It ensures that the necessary _Kafka_ topics
+This service initializes _Kafka_ topics for a set of _NWDAF_-related events. It ensures that the necessary _Kafka_ topics
 are
 created and ready for event processing before all the other services are deployed.
 
