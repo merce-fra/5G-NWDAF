@@ -10,8 +10,8 @@ _[RAN](https://en.wikipedia.org/wiki/Radio_access_network)_.
 ## Requirements
 
 * _Python_ ≥ 3.12 (preferably in a _virtualenv_, or using [Conda](https://anaconda.org/anaconda/conda))
-* [nwdaf-api](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-3gpp-apis)
-* [nwdaf-libcommon](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-libcommon)
+* [nwdaf-api](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/nwdaf-3gpp-apis)
+* [nwdaf-libcommon](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/nwdaf-libcommon)
 * [FastAPI](https://github.com/fastapi/fastapi)
 * [joblib](https://github.com/joblib/joblib)
 * [Tensorflow](https://github.com/tensorflow/tensorflow)
@@ -22,11 +22,11 @@ _[RAN](https://en.wikipedia.org/wiki/Radio_access_network)_.
 Basic _AnLF_ operations (analytics subscription CRUD operations, event exposure mechanics, analytics delivery, _ML_
 model provisioning, etc.) are
 inherited from the `AnlfService` class from
-the [nwdaf-libcommon](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-libcommon)
+the [nwdaf-libcommon](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/nwdaf-libcommon)
 library.
 
 Finite-state machines are used to handle subscriptions concurrently. Each subscription has its
-own [FSM](https://merce-gitlab.fr-merce.mee.com/gitlab/artur/nwdaf-libcommon/-/blob/main/src/nwdaf_libcommon/FiniteStateMachine.py)
+own [FSM](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/nwdaf-libcommon/-/blob/main/src/nwdaf_libcommon/FiniteStateMachine.py)
 with the
 following states and transitions:
 
