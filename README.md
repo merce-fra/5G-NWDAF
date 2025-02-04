@@ -6,7 +6,7 @@ _3GPP_ specifications.
 It is developed entirely in _Python_ and uses _Apache Kafka_ for internal communication. Each microservice is running in
 its own _Docker_ container, and the whole system is deployed with _Docker Compose_.
 
-The project is structured to maximize modularity and reusability through two libraries:  `nwdaf-api` and
+The project is structured to maximise modularity and reusability through two libraries:  `nwdaf-api` and
 `nwdaf-libcommon`.
 
 ## Clone
@@ -44,7 +44,7 @@ The project uses two different internal libraries:
 2. `nwdaf-libcommon`, a package based on
    the [nwdaf-libcommon](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/nwdaf-libcommon) repository
     * Provides platform-level code to streamline the development of new _NWDAF_ services (e.g., _AnLF_, _MTLF_).
-    * Includes utility functions, common patterns, and boilerplate code to minimize the effort required for
+    * Includes utility functions, common patterns, and boilerplate code to minimise the effort required for
       implementing new microservices. It contains all the _Kafka_-related code.
     * Release managed by _CI/CD_ pipelines and distributed via the
       _[MERCE Python Packages](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/python-packages/-/packages)_ internal
@@ -103,16 +103,16 @@ In addition to these main _NWDAF_ services, a whole set of additional services a
 
 Finally, a few technical services are also deployed:
 
-* **Zookeeper**:  centralized server for maintaining configuration information, naming, and providing distributed
-  synchronization and group services. _Kafka_ uses _Zookeeper_ under the hood, it is therefore mandatory to deploy it in
+* **Zookeeper**:  centralised server for maintaining configuration information, naming, and providing distributed
+  synchronisation and group services. _Kafka_ uses _Zookeeper_ under the hood, it is therefore mandatory to deploy it in
   order to use _Kafka_.
 * **Kafka**: an event-streaming platform enabling topic-based producer/consumer interactions. In this project, _Kafka_
   is
   used for internal messaging between microservices.
-* **[Kafka Topics Init](./services/kafka-topics-init)**: A service that initializes all the _Kafka_ topics in advance
-  before all the _NWDAF_ services are launched. It is necessary to initialize these topics in advance to avoid
+* **[Kafka Topics Init](./services/kafka-topics-init)**: A service that initialises all the _Kafka_ topics in advance
+  before all the _NWDAF_ services are launched. It is necessary to initialise these topics in advance to avoid
   time-consuming re-balancing operations when a message is first sent on a given topic.
-* **Grafana**: A data visualization tool that can read data from _HTTP_ endpoints and display it. In our case, it is
+* **Grafana**: A data visualisation tool that can read data from _HTTP_ endpoints and display it. In our case, it is
   used to read data pushed to _Prometheus_ by the _Notification Client_.
 * **Prometheus**: A metrics storage system that provides easy to use data push/pull mechanisms. In our case, it is
   simply used as a middle-man between the _Notification Client_ and _Grafana_.

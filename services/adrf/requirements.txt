@@ -1,0 +1,3 @@
+nwdaf-api
+nwdaf-libcommon
+pymongo

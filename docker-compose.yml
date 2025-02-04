@@ -145,6 +145,31 @@ services:
     networks:
       - nwdaf-network
 
+  adrf:
+    container_name: ${ADRF_SERVICE_NAME}
+    build:
+      context: .
+      network: host
+      args:
+        - BASE_IMAGE=${DOCKER_BASE_IMAGE}
+        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
+        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
+        - SERVICE_DIR=services/adrf
+        - SCRIPT_NAME=main.py
+    environment:
+      - ADRF_SERVICE_NAME=${ADRF_SERVICE_NAME}
+      - ADRF_LOG_LEVEL=${ADRF_LOG_LEVEL}
+      - KAFKA_BOOTSTRAP_SERVER=${KAFKA_SERVICE_NAME}:${KAFKA_SERVICE_PORT}
+      - MONGO_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@${MONGO_SERVICE_NAME}:${MONGO_SERVICE_PORT}
+    depends_on:
+      kafka-topics-init:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_started
+    restart: on-failure
+    networks:
+      - nwdaf-network
+
   gmlc:
     container_name: ${GMLC_SERVICE_NAME}
     build:
@@ -239,9 +264,23 @@ services:
     networks:
       - nwdaf-network
 
+  mongo:
+    image: mongo:8.0.4
+    container_name: ${MONGO_SERVICE_NAME}
+    ports:
+      - ${MONGO_SERVICE_PORT}:${MONGO_SERVICE_PORT}
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    networks:
+      - nwdaf-network
+
 networks:
   nwdaf-network:
     driver: bridge
 
 volumes:
   grafana-storage:
+  mongo_data:

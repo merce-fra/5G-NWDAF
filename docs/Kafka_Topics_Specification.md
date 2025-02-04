@@ -43,12 +43,11 @@ sequenceDiagram
     participant AN as AnLF
     C ->> AG: POST Nnwdaf_EventSubscription(NWDAF_EVENT)
     AG ->> AG: Allocate subscriptionId
-    AG ->> AG: Store (subscriptionId, subscription context)
-    AG ->> K: Produce (CREATE, subscription)
-    AN ->> K: Consume(subscription)
-    K ->> AG: Ack
-    AG ->> C: HTTP 201 CREATED
-    AN ->> AN: Store(subscription)
+    AG ->> AG: create_resource(subscriptionId, subscription context)
+    AG ->> K: send_to_kafka(CREATE, subscription)
+    K ->>AN: analytics_subscription_callback(subscription)
+    AG -->> C: HTTP 201 CREATED
+    AN ->> AN: initialize_subscription(subscription)
 ```
 
 ### Analytics delivery
@@ -74,11 +73,11 @@ sequenceDiagram
     participant C as Consumer
     AN ->> AN: Produces analytics
     AN ->> AN: Retrieves relevant subscriptionId(s)
-    AN ->> K: Produce(Analytics)
-    AG ->> K: Consume
+    AN ->> K: send_to_kafka(analytics, subscriptionId)
+    K ->> AG: analytics_delivery_callback(analytics)
     AG ->> AG: Retrieves subscription context(s)
     AG ->> C: POST Analytics notification
-    C ->> AG: HTTP 200 OK
+    C -->> AG: HTTP 200 OK
 ```
 
 ## Event Exposure
@@ -120,12 +119,12 @@ sequenceDiagram
     participant AG as API Gateway
     participant D as Data source
     AN ->> AN: Determines relevant data
-    AN ->> K: Produce(CREATE, subscription)
-    AG ->> K: Consume
+    AN ->> K: send_to_kafka(CREATE, event_exp_subscription)
+    K ->> AG: event_exp_subscription_callback(event_exp_subscription)
     AG ->> AG: Allocate subscriptionId
     AG ->> AG: Increase reference count
     AG ->> D: POST Nnf_EventExposure(NF_EVENT)
-    D ->> AG: HTTP 201 CREATED (CorrelationId)
+    D -->> AG: HTTP 201 CREATED (CorrelationId)
     AG ->> AG: Store correlationId in subscription context
 ```
 
@@ -151,13 +150,13 @@ sequenceDiagram
     participant AG as API Gateway
     participant K as Kafka
     participant AN as AnLF
-    D ->> AG: POST EventExposure notification (correlationId)
+    D ->> AG: POST EventExposure notification (event_exp_data, correlationId)
     AG ->> AG: Determines NF and event type
     AG ->> AG: Retrieves relevant subscriptionId(s)
-    AG ->> K: Produce(Data)
-    AN ->> K: Consume
-    AG ->> D: HTTP 200 OK
-    AN ->> AN: Processes data
+    AG ->> K: send_to_kafka(event_exp_data, subscriptionId)
+    K ->> AN: raw_data_delivery_callback(event_exp_data)
+    AG -->> D: HTTP 200 OK
+    AN ->> AN: Processes event exposure data
 ```
 
 ## ML Model Provision
@@ -180,8 +179,8 @@ sequenceDiagram
     participant K as Kafka
     participant MT as MTLF
     AN ->> AN: Needs ML Model
-    AN ->> K: Produce(subscription)
-    MT ->> K: Consume
+    AN ->> K: send_to_kafka(ml_model_prov_sub)
+    K ->> MT: ml_model_provision_sub_callback(ml_model_prov_sub)
     MT ->> MT: Stores subscription context
     MT ->> MT: Looks for a suitable ML Model
 ```
@@ -203,8 +202,8 @@ sequenceDiagram
   participant K as Kafka
   participant AN as AnLF
   MT ->> MT: Finds ML Model
-  MT ->> K: Produce(data)
-  AN ->> K: Consume
+  MT ->> K: send_to_kafka(ml_model_info)
+  K ->> AN: ml_model_prov_delivery_callback(ml_model_info)
   AN ->> AN: Stores ML Model info
   AN ->> AN: Loads ML Model
 ```
