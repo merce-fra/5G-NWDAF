@@ -9,46 +9,21 @@ its own _Docker_ container, and the whole system is deployed with _Docker Compos
 The project is structured to maximise modularity and reusability through two libraries:  `nwdaf-api` and
 `nwdaf-libcommon`.
 
-## Clone
-
-In order to clone the current repository on your local environment, run the following commands:
-
-```bash
-git clone git@merce-gitlab.fr-merce.mee.com:wcs_nwdaf/5g-nwdaf.git
-```
-
-For this clone operation to succeed, you should have already set up an _SSH_ key for authentication on your _Gitlab_
-profile and made sure the right _SSH_ configuration is present on your local
-environment. [This tutorial](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/gitlab-ssh-config/-/blob/main/README.md)
-explains how to
-do it.
-
-You can then navigate to the freshly cloned repository to access the codebase:
-
-```bash
-cd ./5g-nwdaf
-```
 
 ## Dependencies
 
 The project uses two different internal libraries:
 
 1. `nwdaf-api`, a package based on
-   the [nwdaf-3gpp-apis](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/nwdaf-3gpp-apis) repository
+   the [nwdaf-3gpp-apis](https://github.com/merce-fra/NWDAF-3GPP-APIs) repository
     * Contains model classes generated from official _3GPP_ _OpenAPI_ _YAML_ files.
     * Primarily used for message payloads, ensuring compliance with _3GPP_-defined data structures.
-    * Release managed by _CI/CD_ pipelines and distributed via the
-      _[MERCE Python Packages](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/python-packages/-/packages)_ internal
-      registry.
 
 2. `nwdaf-libcommon`, a package based on
-   the [nwdaf-libcommon](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/nwdaf-libcommon) repository
+   the [nwdaf-libcommon](https://github.com/merce-fra/NWDAF-Common-Library) repository
     * Provides platform-level code to streamline the development of new _NWDAF_ services (e.g., _AnLF_, _MTLF_).
     * Includes utility functions, common patterns, and boilerplate code to minimise the effort required for
       implementing new microservices. It contains all the _Kafka_-related code.
-    * Release managed by _CI/CD_ pipelines and distributed via the
-      _[MERCE Python Packages](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/python-packages/-/packages)_ internal
-      registry.
 
 You will need to have _[Docker](https://docs.docker.com/engine/install/ubuntu/)_ and
 _[Docker Compose](https://docs.docker.com/desktop/setup/install/linux/ubuntu/)_ installed on your system to build and
@@ -64,7 +39,7 @@ The project consists of multiple microservices, each with a specific role within
   handling analytics
   subscriptions and coordinating the flow between services. It is based on
   the [
-  _ApiGatewayService_](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/nwdaf-libcommon/-/blob/main/src/nwdaf_libcommon/ApiGatewayService.py)
+  _ApiGatewayService_](https://github.com/merce-fra/NWDAF-Common-Library/blob/main/src/nwdaf_libcommon/ApiGatewayService.py)
   class from `nwdaf-libcommon`.
 
 * [**Throughput AnLF**](./services/thr-anlf): Computes _UE_LOC_THROUGHPUT_ analytics using data collected from _GMLC_
@@ -72,14 +47,14 @@ The project consists of multiple microservices, each with a specific role within
   model that
   predicts throughput from location data. It is based on
   the [
-  _AnlfService_](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/nwdaf-libcommon/-/blob/main/src/nwdaf_libcommon/AnlfService.py)
+  _AnlfService_](https://github.com/merce-fra/NWDAF-Common-Library/blob/main/src/nwdaf_libcommon/AnlfService.py)
   class from `nwdaf-libcommon`.
 * [**Throughput MTLF**](./services/thr-mtlf): Provides and manages the _ML_ model used by the _Throughput AnLF_ to make
   inferences, ensuring
   the model remains
   up-to-date and efficient. It is based on
   the [
-  _MtlfService_](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/nwdaf-libcommon/-/blob/main/src/nwdaf_libcommon/MtlfService.py)
+  _MtlfService_](https://github.com/merce-fra/NWDAF-Common-Library/blob/main/src/nwdaf_libcommon/MtlfService.py)
   class from `nwdaf-libcommon`.
 
 > **NB**: The _UE_LOC_THROUGHPUT_ analytics type and the _RAN Event Exposure_ service are not defined in the _3GPP_
@@ -122,25 +97,7 @@ Finally, a few technical services are also deployed:
 All these services communicate with each other via _Apache Kafka_. The topics that are used and the way microservices
 interact with _Kafka_ are detailed in the [_Kafka_ Topics Specification](./docs/Kafka_Topics_Specification.md) document.
 
-## Configure
-
-### Package repository access
-
-A token to access the _MERCE Package Registry_ is required to build and deploy the
-microservices. [This tutorial](https://merce-gitlab.fr-merce.mee.com/gitlab/wcs_nwdaf/python-packages#create-you-access-token)
-explains how to create such a token.
-
-You should then export the following environment variables:
-
-```bash
-export GITLAB_TOKEN_NAME=<gitlab_token_name>
-export GITLAB_TOKEN_VALUE=<gitlab_token_value>
-```
-
-In these commands, _<gitlab_token_name>_ and _<gitlab_token_value>_ should be replaced by the relevant values. You can
-also add these exports in your `.bashrc` in order to avoid doing this step for every new session.
-
-### Services configuration
+## Services configuration
 
 Each service's hostname, port and log level can be configured through the [.env](./.env) file that will be used by the
 _Docker

@@ -1,3 +1,14 @@
+# Copyright 2025 Mitsubishi Electric R&D Centre Europe
+# Author: Vincent Artur
+
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser General
+# Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option)  any later version.
+
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU Lesser General Public License for more details.
+# You should have received a copy of the GNU Lesser General Public License along with this program. If not, see https://www.gnu.org/licenses/lgpl-3.0.html
+
 services:
   zookeeper:
     container_name: ${ZOOKEEPER_SERVICE_NAME}
@@ -38,8 +49,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/kafka-topics-init
         - SCRIPT_NAME=kafka-topics-init.py
     environment:
@@ -58,8 +67,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=nf-stubs/notification-client
         - SCRIPT_NAME=notification-client.py
     environment:
@@ -79,8 +86,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/api-gateway
         - SCRIPT_NAME=main.py
     environment:
@@ -108,8 +113,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/thr-anlf
         - SCRIPT_NAME=main.py
     environment:
@@ -130,8 +133,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/thr-mtlf
         - SCRIPT_NAME=main.py
     environment:
@@ -152,8 +153,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/adrf
         - SCRIPT_NAME=main.py
     environment:
@@ -177,8 +176,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=nf-stubs/gmlc
         - SCRIPT_NAME=gmlc.py
     environment:
@@ -198,8 +195,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=nf-stubs/ran
         - SCRIPT_NAME=ran.py
     environment:
@@ -219,8 +214,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=nf-stubs/csv_file_player
         - SCRIPT_NAME=main.py
     environment:
