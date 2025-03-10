@@ -14,7 +14,9 @@ import os
 import signal
 import sys
 
-from pymongo import MongoClient
+from pydantic import BaseModel
+
+from AdrfService import AdrfService
 
 # Log level
 log_level = os.getenv('ADRF_LOG_LEVEL', 'INFO').upper()
@@ -47,9 +49,15 @@ if __name__ == '__main__':
     try:
         logging.info("ADRF POC")
 
-        client = MongoClient(mongo_uri)
-        db = client['adrf']
-        collection = db["example_collection"]
+        service = AdrfService("adrf", kafka_bootstrap_server, mongo_uri, "adrf")
+        service.run()
+
+
+        class Test(BaseModel):
+            name: str
+            age: int
+            city: str
+
 
         # Insert multiple documents
         documents = [
@@ -58,16 +66,17 @@ if __name__ == '__main__':
             {"name": "John", "age": 22, "city": "London"}
         ]
 
-        insert_many_result = collection.insert_many(documents)
-        logging.info(f"Inserted documents with IDs: {insert_many_result.inserted_ids}")
+        for doc in documents:
+            instance = Test(**doc)
+            res = service.create_update_dataset("test", instance)
+            logging.info(f"Inserted document in dataset: {res}")
 
         logging.info("Find all documents:")
-        for doc in collection.find({"city": "London"}):
+        for doc in service.read_dataset("test", Test):
             logging.info(doc)
 
-        collection.drop()
+        service.delete_dataset("test")
 
-        client.close()
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
