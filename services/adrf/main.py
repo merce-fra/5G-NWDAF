@@ -14,8 +14,6 @@ import os
 import signal
 import sys
 
-from pydantic import BaseModel
-
 from AdrfService import AdrfService
 
 # Log level

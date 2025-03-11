@@ -1,7 +1,5 @@
 # Copyright 2025 Mitsubishi Electric R&D Centre Europe
 # Author: Vincent Artur
-import logging
-from enum import Enum
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser General
 # Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option)  any later version.
 
@@ -11,6 +9,8 @@ from enum import Enum
 # You should have received a copy of the GNU Lesser General Public License along with this program. If not, see https://www.gnu.org/licenses/lgpl-3.0.html
 
 from typing import Any, TypeVar, Optional
+import logging
+from enum import Enum
 
 from nwdaf_api import (
     SmfEvent,
@@ -107,6 +107,7 @@ class AdrfService(NwdafService):
         return result.deleted_count
 
     async def start(self):
+        self.initialize_dataset_collection_subscription()
         self.init_event_exposure_sub_handlers()
         self.initialize_event_exposure_delivery()
         await super().start()
@@ -124,7 +125,7 @@ class AdrfService(NwdafService):
                     NfInfo.get_event_exposure_notification_type(nf_type), KafkaWriteMode.PAYLOAD)
                 self.event_exposure_sub_handlers[(nf_type, event)] = event_exposure_sub_handler
 
-    def on_dataset_collection_subscription_created(self, subscription: NadrfDataStoreSubscription):
+    def on_dataset_collection_subscription_created(self, _sub_id: str, subscription: NadrfDataStoreSubscription):
         event_exp_sub = extract_event_exposure_subscription(subscription)
         if event_exp_sub is None:
             logging.warning("This subscription type cannot be handled by the ADRF, ignoring...")
@@ -153,7 +154,7 @@ class AdrfService(NwdafService):
 
                 def event_exposure_callback(payload: model_type):
                     # Retrieve the datasetId (correlationId)
-                    datasetId = "test"
+                    datasetId = getattr(payload, NfInfo.get_correlation_id_field_name(nf_type))
 
                     # Check if we are actively collecting data for this dataset, and forward the payload
                     if datasetId in self.current_dataset_ids:
@@ -164,4 +165,16 @@ class AdrfService(NwdafService):
                 event_exposure_sub_handler.add_receive_callback(event_exposure_callback)
 
     def on_dataset_data_received(self, dataset_id: str, payload: BaseModel):
+        logging.info(f"Received new data for dataset '{dataset_id}': {payload.model_dump_json(exclude_unset=True)}")
         self.create_update_dataset(dataset_id, payload)
+
+    def initialize_dataset_collection_subscription(self):
+        dataset_collection_sub_handler = self.add_kafka_read_handler(
+            f"Control.DatasetCollectionSubscription",
+            NadrfDataStoreSubscription, KafkaSubscriptionMode.CRUD)
+        dataset_collection_sub_handler.add_crud_event_callback(ControlOperationType.CREATE,
+                                                               self.on_dataset_collection_subscription_created)
+        # dataset_collection_sub_handler.add_crud_event_callback(ControlOperationType.UPDATE,
+        #                                                  self.on_dataset_collection_subscription_updated)
+        # dataset_collection_sub_handler.add_crud_event_callback(ControlOperationType.DELETE,
+        #                                                  self.on_dataset_collection_subscription_deleted)
