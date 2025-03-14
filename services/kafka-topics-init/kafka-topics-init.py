@@ -131,6 +131,9 @@ def main():
         topic_list.extend(get_event_exposure_topic_names("Data.EventExposureDelivery"))
         topic_list.extend(get_topic_names("Control.MLModelProvisionSubscription", NwdafEvent))
         topic_list.extend(get_topic_names("Data.MLModelProvisionDelivery", NwdafEvent))
+        topic_list.append("Control.DatasetCollectionSubscription")
+        topic_list.append("Control.DatasetRetrievalSubscription")
+        topic_list.append("Data.DatasetRetrievalDelivery")
 
         logging.info("Creating all the relevant Kafka topics...")
         for topic_name in topic_list:

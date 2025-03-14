@@ -2,7 +2,7 @@
 # Author: Vincent Artur
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser General
 # Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option)  any later version.
-
+from datetime import datetime
 # This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
 # warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 # See the GNU Lesser General Public License for more details.
@@ -19,14 +19,18 @@ from nwdaf_api import (
     EventType,
     NefEvent,
     EventNotifyDataType,
-    RanEvent)
+    RanEvent,
+    NadrfDataStoreSubscription,
+    NadrfDataRetrievalSubscription,
+    NadrfDataRetrievalNotification,
+    NFType, AmfEventNotification, NsmfEventExposureNotification, MonitoringReport, NefEventExposureNotif,
+    AfEventExposureNotif, NrfNotificationData, SACEventReport, UpfNotificationData, EventNotifyData, TimeWindow,
+    DataNotification)
 from nwdaf_libcommon.NfInfo import NfInfo
 from nwdaf_libcommon.ControlOperationType import ControlOperationType
 from nwdaf_libcommon.KafkaReadHandler import KafkaSubscriptionMode
 from nwdaf_libcommon.KafkaWriteHandler import KafkaWriteMode, KafkaWriteHandler
 from nwdaf_libcommon.NwdafService import NwdafService
-from nwdaf_api.models.nadrf_data_store_subscription import NadrfDataStoreSubscription
-from nwdaf_api.models.nf_type import NFType
 from pydantic import BaseModel
 from pymongo import MongoClient
 from pymongo.collection import Collection
@@ -38,6 +42,12 @@ class DataSubInfo(BaseModel):
     nf_type: NFType
     event_type: Enum
     payload: BaseModel
+
+
+class DatasetRecord(BaseModel):
+    type: type[BaseModel]
+    payload: BaseModel
+    timestamp: datetime
 
 
 def extract_event_exposure_subscription(data_store_sub: NadrfDataStoreSubscription) -> Optional[DataSubInfo]:
@@ -74,6 +84,60 @@ def extract_event_exposure_subscription(data_store_sub: NadrfDataStoreSubscripti
         return None
 
 
+def extract_event_exposure_timestamp(payload: BaseModel) -> datetime:
+    if isinstance(payload, AmfEventNotification):
+        return payload.report_list[0].time_stamp
+    elif isinstance(payload, NsmfEventExposureNotification):
+        return payload.event_notifs[0].time_stamp
+    elif isinstance(payload, MonitoringReport):
+        return payload.time_stamp
+    elif isinstance(payload, NefEventExposureNotif):
+        return payload.event_notifs[0].time_stamp
+    elif isinstance(payload, AfEventExposureNotif):
+        return payload.event_notifs[0].time_stamp
+    elif isinstance(payload, NrfNotificationData):
+        # No timestamp in this type of notification, return datetime.now() (not the cleanest, but good enough for now)
+        return datetime.now()
+    elif isinstance(payload, SACEventReport):
+        return payload.report.time_stamp
+    elif isinstance(payload, UpfNotificationData):
+        return payload.notification_items[0].time_stamp
+    elif isinstance(payload, EventNotifyData):
+        return payload.timestamp_of_location_estimate
+    else:
+        return datetime.now()
+
+
+def package_data_notif(record: DatasetRecord) -> Optional[DataNotification]:
+    if record.type == AmfEventNotification:
+        notif = AmfEventNotification(**record.payload.model_dump())
+        return DataNotification(amfEventNotifs=[notif], timeStamp=record.timestamp)
+    elif record.type == NsmfEventExposureNotification:
+        notif = NsmfEventExposureNotification(**record.payload.model_dump())
+        return DataNotification(smfEventNotifs=[notif], timeStamp=record.timestamp)
+    elif record.type == MonitoringReport:
+        notif = MonitoringReport(**record.payload.model_dump())
+        return DataNotification(udmEventNotifs=[notif], timeStamp=record.timestamp)
+    elif record.type == NefEventExposureNotif:
+        notif = NefEventExposureNotif(**record.payload.model_dump())
+        return DataNotification(nefEventNotifs=[notif], timeStamp=record.timestamp)
+    elif record.type == AfEventExposureNotif:
+        notif = AfEventExposureNotif(**record.payload.model_dump())
+        return DataNotification(afEventNotifs=[notif], timeStamp=record.timestamp)
+    elif record.type == NrfNotificationData:
+        notif = NrfNotificationData(**record.payload.model_dump())
+        return DataNotification(nrfEventNotifs=[notif], timeStamp=record.timestamp)
+    elif record.type == SACEventReport:
+        notif = SACEventReport(**record.payload.model_dump())
+        return DataNotification(nsacfEventNotifs=[notif], timeStamp=record.timestamp)
+    elif record.type == UpfNotificationData:
+        notif = UpfNotificationData(**record.payload.model_dump())
+        return DataNotification(upfEventNotifs=[notif], timeStamp=record.timestamp)
+    elif record.type == EventNotifyData:
+        notif = EventNotifyData(**record.payload.model_dump())
+        return DataNotification(gmlcEventNotifs=[notif], timeStamp=record.timestamp)
+
+
 nf_event_mappings = {NFType.SMF: SmfEvent, NFType.AF: AfEvent, NFType.AMF: AmfEventType, NFType.UPF: EventType,
                      NFType.NEF: NefEvent, NFType.GMLC: EventNotifyDataType, NFType.RAN: RanEvent}
 
@@ -86,19 +150,27 @@ class AdrfService(NwdafService):
         self.db = self.client[db_name]
         self.event_exposure_sub_handlers: dict[tuple[NFType, Enum], KafkaWriteHandler] = dict()
         self.current_dataset_ids = set()
+        self.dataset_retrieval_delivery_handler: Optional[KafkaWriteHandler] = None
 
     def get_collection(self, dataset_id: str) -> Collection:
         return self.db[dataset_id]
 
     def create_update_dataset(self, dataset_id: str, data: BaseModel) -> str:
         collection = self.get_collection(dataset_id)
-        result = collection.insert_one(data.model_dump())
+        timestamp = extract_event_exposure_timestamp(data)
+        dataset_record = DatasetRecord(type=type(data), payload=data, timestamp=timestamp)
+
+        result = collection.insert_one(dataset_record.model_dump())
         return str(result.inserted_id)
 
-    def read_dataset(self, dataset_id: str, model: type[BaseModel], query: dict[str, Any] = None) -> list[BaseModel]:
-        query = query if query else {}
+    def read_dataset(self, dataset_id: str, time_window: TimeWindow) -> list[DatasetRecord]:
         collection = self.get_collection(dataset_id)
-        return [model(**doc) for doc in collection.find(query)]
+        records = [DatasetRecord(**doc) for doc in collection.find()]
+        result = []
+        for record in records:
+            if time_window.start_time <= record.timestamp <= time_window.stop_time:
+                result.append(record)
+        return result
 
     def delete_dataset(self, dataset_id: str, query: dict[str, Any] = None) -> int:
         query = query if query else {}
@@ -110,6 +182,8 @@ class AdrfService(NwdafService):
         self.initialize_dataset_collection_subscription()
         self.init_event_exposure_sub_handlers()
         self.initialize_event_exposure_delivery()
+        self.initialize_dataset_retrieval_subscription()
+        self.initialize_dataset_retrieval_delivery()
         await super().start()
 
     async def stop(self):
@@ -174,7 +248,27 @@ class AdrfService(NwdafService):
             NadrfDataStoreSubscription, KafkaSubscriptionMode.CRUD)
         dataset_collection_sub_handler.add_crud_event_callback(ControlOperationType.CREATE,
                                                                self.on_dataset_collection_subscription_created)
-        # dataset_collection_sub_handler.add_crud_event_callback(ControlOperationType.UPDATE,
-        #                                                  self.on_dataset_collection_subscription_updated)
-        # dataset_collection_sub_handler.add_crud_event_callback(ControlOperationType.DELETE,
-        #                                                  self.on_dataset_collection_subscription_deleted)
+
+    def initialize_dataset_retrieval_subscription(self):
+        dataset_retrieval_sub_handler = self.add_kafka_read_handler("Control.DatasetRetrievalSubscription",
+                                                                    NadrfDataRetrievalSubscription,
+                                                                    KafkaSubscriptionMode.CRUD)
+        dataset_retrieval_sub_handler.add_crud_event_callback(ControlOperationType.CREATE,
+                                                              self.on_dataset_retrieval_subscription_created)
+
+    def initialize_dataset_retrieval_delivery(self):
+        dataset_retrieval_delivery_handler = self.add_kafka_write_handler(
+            f"Data.DatasetRetrievalDelivery",
+            NadrfDataRetrievalNotification, KafkaWriteMode.PAYLOAD)
+        self.dataset_retrieval_delivery_handler = dataset_retrieval_delivery_handler
+
+    def on_dataset_retrieval_subscription_created(self, _sub_id: str, subscription: NadrfDataRetrievalSubscription):
+        dataset_id = subscription.data_set_id
+        dataset_records = self.read_dataset(dataset_id, subscription.time_period)
+        for index, record in enumerate(dataset_records):
+            notif = NadrfDataRetrievalNotification(notifCorrId=subscription.notif_corr_id, timeStamp=datetime.now(),
+                                                   dataNotif=package_data_notif(record))
+            if index == len(dataset_records) - 1:
+                notif.termination_req = True
+
+            self.dataset_retrieval_delivery_handler.enqueue_notification(dataset_id, notif)
