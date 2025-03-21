@@ -1,6 +1,7 @@
 # Copyright 2025 Mitsubishi Electric R&D Centre Europe
 # Author: Vincent Artur
-
+import asyncio
+from datetime import datetime, timedelta
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser General
 # Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option)  any later version.
 
@@ -22,7 +23,10 @@ from nwdaf_api.models import (
     InputData,
     ExternalClientType,
     PeriodicEventInfo,
-    LocationTypeRequested
+    LocationTypeRequested,
+    NadrfDataRetrievalSubscription,
+    NadrfDataRetrievalNotification,
+    TimeWindow
 )
 from nwdaf_libcommon.MtlfService import MtlfService
 from typing_extensions import override
@@ -52,4 +56,18 @@ class ThroughputMtlfService(MtlfService):
                                                                                                     reportingInterval=10,
                                                                                                     reportingInfiniteInd=True),
                                                                                                 locationTypeRequested=LocationTypeRequested.CURRENT_LOCATION)))
-        self.send_dataset_collection_subscription(dataSetId, dataset_sub)
+        #self.send_dataset_collection_subscription(dataSetId, dataset_sub)
+        self.test_data_retrieval()
+
+    def test_data_retrieval(self):
+        logging.info("Sending a dataset retrieval subscription for throughput_dataset")
+        dataset_retrieval_sub = NadrfDataRetrievalSubscription(dataSetId="throughput_dataset", notifCorrId="dummy",
+                                                               notificationURI="dummy",
+                                                               timePeriod=TimeWindow(startTime=datetime(1970, 1, 1),
+                                                                                     stopTime=datetime.max))
+        self.send_dataset_retrieval_subscription("throughput_dataset_retrieval", dataset_retrieval_sub)
+
+    @override
+    def on_dataset_retrieval_delivery(self, retrieval_notification: NadrfDataRetrievalNotification):
+        logging.info(
+            f"Received a new dataset retrieval notification: {retrieval_notification.model_dump(exclude_unset=True)}")
