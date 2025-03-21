@@ -54,6 +54,7 @@ class ThroughputAnlfService(AnlfService):
                          {(NFType.GMLC, EventNotifyDataType.PERIODIC), (NFType.RAN, RanEvent.RSRP_INFO)})
 
         self.subscription_registry = ThroughputSubscriptionRegistry()
+        self.current_subs: set[str] = set()
         logging.info(f"AnLF service '{self._service_name}' is ready")
 
     @override
@@ -83,24 +84,26 @@ class ThroughputAnlfService(AnlfService):
                 self.subscription_registry.add_subscription(ThroughputSubscriptionData(sub_id, supi),
                                                             ThroughputSubscriptionFSM())
 
+            self.current_subs.add(sub_id)
+
     def initialize_subscription(self, sub_id: str, supi: str):
         # Send GMLC and RAN event exposure subscriptions
         logging.info(
             f"Sending a periodic location request to the GMLC for UE '{supi}', CORRELATION_ID={sub_id}")
         self.send_event_exposure_subscription(NFType.GMLC, EventNotifyDataType.PERIODIC,
                                               InputData(supi=supi,
-                                                        ldr_reference=sub_id,
-                                                        external_client_type=ExternalClientType.VALUE_ADDED_SERVICES,
-                                                        periodic_event_info=PeriodicEventInfo(reporting_amount=1,
-                                                                                              reporting_interval=10,
-                                                                                              reporting_infinite_ind=True),
-                                                        location_type_requested=LocationTypeRequested.CURRENT_LOCATION))
+                                                        ldrReference=sub_id,
+                                                        externalClientType=ExternalClientType.VALUE_ADDED_SERVICES,
+                                                        periodicEventInfo=PeriodicEventInfo(reportingAmount=1,
+                                                                                            reportingInterval=10,
+                                                                                            reportingInfiniteInd=True),
+                                                        locationTypeRequested=LocationTypeRequested.CURRENT_LOCATION))
         logging.info(f"Sending a RSRP info subscription to the RAN for UE '{supi}', CORRELATION_ID={sub_id}")
         self.send_event_exposure_subscription(NFType.RAN, RanEvent.RSRP_INFO,
                                               RanEventSubscription(event=RanEvent.RSRP_INFO,
-                                                                   correlation_id=sub_id,
-                                                                   notif_uri="myUri",
-                                                                   ue_ids=[supi],
+                                                                   correlationId=sub_id,
+                                                                   notifUri="myUri",
+                                                                   ueIds=[supi],
                                                                    periodicity=10))
 
     @override
@@ -120,6 +123,9 @@ class ThroughputAnlfService(AnlfService):
         Args:
             ue_location_notification (EventNotifyDataExt): The UE location notification.
         """
+        if ue_location_notification.ldr_reference not in self.current_subs:
+            return
+
         notif_dict = ue_location_notification.model_dump(exclude_unset=True)
         log_message = (f"Received new UE location data from GMLC: SUPI='{notif_dict['supi']}', "
                        f"Location (Lat, Lon)={notif_dict['location_estimate']['anyof_schema_1_validator']['point']['lat']}, "
@@ -147,6 +153,9 @@ class ThroughputAnlfService(AnlfService):
             logging.error(f"Could not find subscription data for ID '{sub_id}' and SUPI '{supi}'")
 
     def on_ran_rsrp_info_received(self, ran_notification: RanEventExposureNotification):
+        if ran_notification.correlation_id not in self.current_subs:
+            return
+
         for rsrp_info in ran_notification.rsrp_infos:
             logging.info(f"Received new RSRP information from the RAN: UE_ID='{rsrp_info.ue_id}', "
                          f"LTE_RSRP={rsrp_info.lte_rsrp:.2f} dB, "
@@ -202,7 +211,7 @@ class ThroughputAnlfService(AnlfService):
                     case States.SENDING_ANALYTICS_NOTIF:
                         self.send_analytics_notification(sub_data.sub_id,
                                                          EventNotification(event=NwdafEvent.UE_LOC_THROUGHPUT,
-                                                                           predicted_throughput_infos=[
+                                                                           predictedThroughputInfos=[
                                                                                PredictedThroughputInfo(
                                                                                    supi=sub_data.supi,
                                                                                    throughput=f"{sub_data.pending_throughput_prediction:.2f} Mbps")]))

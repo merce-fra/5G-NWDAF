@@ -14,7 +14,7 @@ import os
 import signal
 import sys
 
-from AdrfService import AdrfService
+from nwdaf_libcommon.AdrfService import AdrfService
 
 # Log level
 log_level = os.getenv('ADRF_LOG_LEVEL', 'INFO').upper()
