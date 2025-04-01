@@ -14,8 +14,6 @@ ARG BASE_IMAGE=python:3.12
 FROM ${BASE_IMAGE}
 
 # Define build arguments
-ARG GITLAB_TOKEN_NAME
-ARG GITLAB_TOKEN_VALUE
 ARG SERVICE_DIR
 ARG SCRIPT_NAME
 
@@ -23,16 +21,10 @@ ARG SCRIPT_NAME
 ARG USE_LOCAL_PACKAGES
 
 # Check if required arguments are set
-RUN if [ -z "${SCRIPT_NAME}" ]; then echo "ERROR: SCRIPT_NAME is not set"; exit 1; fi && \
-    if [ -z "${SERVICE_DIR}" ]; then echo "ERROR: SERVICE_DIR is not set"; exit 1; fi && \
-    if [ -z "${GITLAB_TOKEN_NAME}" ]; then echo "ERROR: GITLAB_TOKEN_NAME is not set"; exit 1; fi && \
-    if [ -z "${GITLAB_TOKEN_VALUE}" ]; then echo "ERROR: GITLAB_TOKEN_VALUE is not set"; exit 1; fi
-
-
-# Configure pip to use the token
-RUN mkdir -p /root/.pip && \
-    echo "[global]" > /root/.pip/pip.conf && \
-    echo "extra-index-url = https://${GITLAB_TOKEN_NAME}:${GITLAB_TOKEN_VALUE}@merce-gitlab.fr-merce.mee.com/gitlab/api/v4/projects/248/packages/pypi/simple" >> /root/.pip/pip.conf
+RUN echo "SCRIPT_NAME is: $SCRIPT_NAME" && \
+    echo "SERVICE_DIR is: $SERVICE_DIR" && \
+    if [ -z "$SCRIPT_NAME" ]; then echo "ERROR: SCRIPT_NAME is not set"; exit 1; fi && \
+    if [ -z "$SERVICE_DIR" ]; then echo "ERROR: SERVICE_DIR is not set"; exit 1; fi
 
 # Set the working directory
 WORKDIR /app

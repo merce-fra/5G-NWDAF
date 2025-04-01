@@ -49,8 +49,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/kafka-topics-init
         - SCRIPT_NAME=kafka-topics-init.py
         - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
@@ -72,8 +70,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=nf-stubs/notification-client
         - SCRIPT_NAME=notification-client.py
         - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
@@ -96,8 +92,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/api-gateway
         - SCRIPT_NAME=main.py
         - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
@@ -126,8 +120,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/thr-anlf
         - SCRIPT_NAME=main.py
         - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
@@ -149,8 +141,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/thr-mtlf
         - SCRIPT_NAME=main.py
         - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
@@ -172,8 +162,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=services/adrf
         - SCRIPT_NAME=main.py
         - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
@@ -198,8 +186,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=nf-stubs/gmlc
         - SCRIPT_NAME=gmlc.py
         - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
@@ -220,8 +206,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=nf-stubs/ran
         - SCRIPT_NAME=ran.py
         - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
@@ -242,8 +226,6 @@ services:
       network: host
       args:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
-        - GITLAB_TOKEN_NAME=${GITLAB_TOKEN_NAME}
-        - GITLAB_TOKEN_VALUE=${GITLAB_TOKEN_VALUE}
         - SERVICE_DIR=nf-stubs/csv_file_player
         - SCRIPT_NAME=main.py
         - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
