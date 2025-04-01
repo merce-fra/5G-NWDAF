@@ -51,10 +51,13 @@ services:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
         - SERVICE_DIR=services/kafka-topics-init
         - SCRIPT_NAME=kafka-topics-init.py
+        - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
     environment:
       - TOPICS_INIT_SERVICE_NAME=${TOPICS_INIT_SERVICE_NAME}
       - TOPICS_INIT_LOG_LEVEL=${TOPICS_INIT_LOG_LEVEL}
       - KAFKA_BOOTSTRAP_SERVER=${KAFKA_SERVICE_NAME}:${KAFKA_SERVICE_PORT}
+    volumes:
+      - ./local_packages:/mnt/local_packages
     depends_on:
       - ${KAFKA_SERVICE_NAME}
     networks:
@@ -69,10 +72,13 @@ services:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
         - SERVICE_DIR=nf-stubs/notification-client
         - SCRIPT_NAME=notification-client.py
+        - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
     environment:
       - NOTIF_CLIENT_SERVICE_NAME=${NOTIF_CLIENT_SERVICE_NAME}
       - NOTIF_CLIENT_SERVICE_PORT=${NOTIF_CLIENT_SERVICE_PORT}
       - NOTIF_CLIENT_LOG_LEVEL=${NOTIF_CLIENT_LOG_LEVEL}
+    volumes:
+      - ./local_packages:/mnt/local_packages
     ports:
       - ${NOTIF_CLIENT_SERVICE_PORT}:${NOTIF_CLIENT_SERVICE_PORT}
     restart: on-failure
@@ -88,6 +94,7 @@ services:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
         - SERVICE_DIR=services/api-gateway
         - SCRIPT_NAME=main.py
+        - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
     environment:
       - API_GW_SERVICE_NAME=${API_GW_SERVICE_NAME}
       - API_GW_SERVICE_PORT=${API_GW_SERVICE_PORT}
@@ -115,6 +122,7 @@ services:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
         - SERVICE_DIR=services/thr-anlf
         - SCRIPT_NAME=main.py
+        - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
     environment:
       - THR_ANLF_SERVICE_NAME=${THR_ANLF_SERVICE_NAME}
       - THR_ANLF_LOG_LEVEL=${THR_ANLF_LOG_LEVEL}
@@ -135,6 +143,7 @@ services:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
         - SERVICE_DIR=services/thr-mtlf
         - SCRIPT_NAME=main.py
+        - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
     environment:
       - THR_MTLF_SERVICE_NAME=${THR_MTLF_SERVICE_NAME}
       - THR_MTLF_LOG_LEVEL=${THR_MTLF_LOG_LEVEL}
@@ -155,6 +164,7 @@ services:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
         - SERVICE_DIR=services/adrf
         - SCRIPT_NAME=main.py
+        - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
     environment:
       - ADRF_SERVICE_NAME=${ADRF_SERVICE_NAME}
       - ADRF_LOG_LEVEL=${ADRF_LOG_LEVEL}
@@ -178,6 +188,7 @@ services:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
         - SERVICE_DIR=nf-stubs/gmlc
         - SCRIPT_NAME=gmlc.py
+        - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
     environment:
       - GMLC_SERVICE_NAME=${GMLC_SERVICE_NAME}
       - GMLC_SERVICE_PORT=${GMLC_SERVICE_PORT}
@@ -197,6 +208,7 @@ services:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
         - SERVICE_DIR=nf-stubs/ran
         - SCRIPT_NAME=ran.py
+        - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
     environment:
       - RAN_SERVICE_NAME=${RAN_SERVICE_NAME}
       - RAN_SERVICE_PORT=${RAN_SERVICE_PORT}
@@ -216,6 +228,7 @@ services:
         - BASE_IMAGE=${DOCKER_BASE_IMAGE}
         - SERVICE_DIR=nf-stubs/csv_file_player
         - SCRIPT_NAME=main.py
+        - USE_LOCAL_PACKAGES=${USE_LOCAL_PACKAGES}
     environment:
       - CSV_FP_SERVICE_NAME=${CSV_FP_SERVICE_NAME}
       - CSV_FP_SERVICE_PORT=${CSV_FP_SERVICE_PORT}

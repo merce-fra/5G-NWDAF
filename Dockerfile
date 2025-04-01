@@ -17,19 +17,31 @@ FROM ${BASE_IMAGE}
 ARG SERVICE_DIR
 ARG SCRIPT_NAME
 
+# Environment variable to control local package installation
+ARG USE_LOCAL_PACKAGES
+
 # Check if required arguments are set
 RUN if [ -z "${SCRIPT_NAME}" ]; then echo "ERROR: SCRIPT_NAME is not set"; exit 1; fi && \
     if [ -z "${SERVICE_DIR}" ]; then echo "ERROR: SERVICE_DIR is not set"; exit 1; fi
 
-# Add custom certificate
-COPY ./certificates/*.crt /usr/local/share/ca-certificates/
-RUN update-ca-certificates
 
 # Set the working directory
 WORKDIR /app
 
 # Copy all service files
 COPY ${SERVICE_DIR}/ /app/
+
+COPY ./local_packages /mnt/local_packages/
+
+# Install local packages if needed
+RUN if [ "$USE_LOCAL_PACKAGES" = "1" ]; then \
+        echo "Copying and installing local packages..." && \
+        mkdir -p /mnt/local_packages && \
+        pip install --no-cache-dir /mnt/local_packages/*.whl; \
+    else \
+        echo "Skipping local package installation."; \
+    fi
+
 
 # Install pip packages
 ENV PIP_ROOT_USER_ACTION=ignore

@@ -9,7 +9,6 @@ its own _Docker_ container, and the whole system is deployed with _Docker Compos
 The project is structured to maximise modularity and reusability through two libraries:  `nwdaf-api` and
 `nwdaf-libcommon`.
 
-
 ## Dependencies
 
 The project uses two different internal libraries:
@@ -110,6 +109,26 @@ API_GW_LOG_LEVEL = INFO
 ```
 
 ## Build _Docker_ images
+
+### Copy local packages
+
+If you built `nwdaf-3gpp-apis` and `nwdaf-libcommon` locally, you will need to copy them into the containers in order to
+be able to build the services. For example, it can be done like this:
+
+```bash
+mkdir -p local_packages
+cp ../nwdaf-3gpp-apis/output/dist/nwdaf_api-0.0.0-py3-none-any.whl ./local_packages
+cp ../nwdaf-libcommon/dist/nwdaf_libcommon-0.0.0-py3-none-any.whl ./local_packages
+```
+Of course, replace all the paths and version numbers with values that are relevant to your own environment
+
+You will also need to set this environment variable in the _[.env](./.env)_ file:
+
+```bash
+USE_LOCAL_PACKAGES=1
+```
+
+### Build containers
 
 To build all the microservices, run the following command:
 
