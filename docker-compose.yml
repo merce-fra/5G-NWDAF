@@ -295,9 +295,11 @@ services:
       - ${MONGO_SERVICE_PORT}:${MONGO_SERVICE_PORT}
     volumes:
       - mongo_data:/data/db
+      - ./mongodb/mongod.conf:/etc/mongod.conf
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    command: [ "mongod", "--config", "/etc/mongod.conf" ]
     networks:
       - nwdaf-network
 
