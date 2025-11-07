@@ -20,6 +20,7 @@ class ThroughputSubscriptionData:
         self.pending_gmlc_data: Optional[tuple[float, float, float, int]] = None
         self.pending_ran_data: Optional[tuple[float, float]] = None
         self.pending_throughput_prediction: Optional[float] = None
+        self.deletion_requested: bool = False
 
     def __hash__(self):
         return hash((self.sub_id, self.supi))

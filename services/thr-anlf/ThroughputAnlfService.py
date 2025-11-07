@@ -32,6 +32,8 @@ from nwdaf_api.models import (
     MLEventNotif
 )
 from nwdaf_libcommon.AnlfService import AnlfService
+from nwdaf_libcommon.ControlOperationType import ControlOperationType
+from nwdaf_libcommon.KafkaPayload import KafkaPayload
 from pydantic import BaseModel
 
 from ThroughputSubscriptionFSM import ThroughputSubscriptionFSM, States, Transitions
@@ -86,25 +88,44 @@ class ThroughputAnlfService(AnlfService):
 
             self.current_subs.add(sub_id)
 
+    @override
+    def on_analytics_subscription_deleted(self, sub_id: str, sub: NnwdafEventsSubscription):
+        """
+        Handles the deletion of a subscription.
+
+        Args:
+            sub_id (str): The subscription ID.
+            sub (NnwdafEventsSubscription): The subscription.
+        """
+        for event_sub in sub.event_subscriptions:
+            if event_sub.event != NwdafEvent.UE_LOC_THROUGHPUT:
+                continue
+
+            for supi in event_sub.tgt_ue.supis:
+                self.subscription_registry.mark_for_deletion(sub_id, supi)
+
     def initialize_subscription(self, sub_id: str, supi: str):
         # Send GMLC and RAN event exposure subscriptions
         logging.info(
             f"Sending a periodic location request to the GMLC for UE '{supi}', CORRELATION_ID={sub_id}")
         self.send_event_exposure_subscription(NFType.GMLC, EventNotifyDataType.PERIODIC,
-                                              InputData(supi=supi,
-                                                        ldrReference=sub_id,
-                                                        externalClientType=ExternalClientType.VALUE_ADDED_SERVICES,
-                                                        periodicEventInfo=PeriodicEventInfo(reportingAmount=1,
-                                                                                            reportingInterval=10,
-                                                                                            reportingInfiniteInd=True),
-                                                        locationTypeRequested=LocationTypeRequested.CURRENT_LOCATION))
+                                              KafkaPayload(resource_id=ControlOperationType.CREATE,
+                                                           resource_data=InputData(supi=supi,
+                                                                                   ldrReference=sub_id,
+                                                                                   externalClientType=ExternalClientType.VALUE_ADDED_SERVICES,
+                                                                                   periodicEventInfo=PeriodicEventInfo(
+                                                                                       reportingAmount=1,
+                                                                                       reportingInterval=10,
+                                                                                       reportingInfiniteInd=True),
+                                                                                   locationTypeRequested=LocationTypeRequested.CURRENT_LOCATION)))
         logging.info(f"Sending a RSRP info subscription to the RAN for UE '{supi}', CORRELATION_ID={sub_id}")
         self.send_event_exposure_subscription(NFType.RAN, RanEvent.RSRP_INFO,
-                                              RanEventSubscription(event=RanEvent.RSRP_INFO,
-                                                                   correlationId=sub_id,
-                                                                   notifUri="myUri",
-                                                                   ueIds=[supi],
-                                                                   periodicity=10))
+                                              KafkaPayload(resource_id=ControlOperationType.CREATE,
+                                                           resource_data=RanEventSubscription(event=RanEvent.RSRP_INFO,
+                                                                                              correlationId=sub_id,
+                                                                                              notifUri="myUri",
+                                                                                              ueIds=[supi],
+                                                                                              periodicity=10)))
 
     @override
     def on_event_exposure_data(self, nf_type: NFType, event_type: Enum, data: BaseModel):
@@ -190,25 +211,35 @@ class ThroughputAnlfService(AnlfService):
                 match subscription_fsm.current_state:
 
                     case States.INITIALIZING:
-                        self.initialize_subscription(sub_data.sub_id, sub_data.supi)
-                        subscription_fsm.transition(Transitions.INITIALIZATION_DONE)
+                        if sub_data.deletion_requested:
+                            subscription_fsm.transition(Transitions.DELETION_REQUESTED)
+                        else:
+                            self.initialize_subscription(sub_data.sub_id, sub_data.supi)
+                            subscription_fsm.transition(Transitions.INITIALIZATION_DONE)
 
                     case States.WAITING_FOR_GMLC_NOTIF | States.WAITING_FOR_RAN_NOTIF:
-                        if sub_data.pending_ran_data and sub_data.pending_gmlc_data:
+                        if sub_data.deletion_requested:
+                            subscription_fsm.transition(Transitions.DELETION_REQUESTED)
+                        elif sub_data.pending_ran_data and sub_data.pending_gmlc_data:
                             subscription_fsm.transition(Transitions.ALL_NOTIFS_RECEIVED)
                         else:
                             subscription_fsm.transition(Transitions.WAITING_FOR_NOTIFS)
                             continue
 
                     case States.PREDICTING_THROUGHPUT:
-                        predicted_throughput = self.predict_throughput(sub_data)
-                        if predicted_throughput is not None:
-                            sub_data.pending_throughput_prediction = predicted_throughput
-                            sub_data.pending_gmlc_data = None
-                            sub_data.pending_ran_data = None
-                            subscription_fsm.transition(Transitions.PREDICTION_DONE)
+                        if sub_data.deletion_requested:
+                            subscription_fsm.transition(Transitions.DELETION_REQUESTED)
+                        else:
+                            predicted_throughput = self.predict_throughput(sub_data)
+                            if predicted_throughput is not None:
+                                sub_data.pending_throughput_prediction = predicted_throughput
+                                sub_data.pending_gmlc_data = None
+                                sub_data.pending_ran_data = None
+                                subscription_fsm.transition(Transitions.PREDICTION_DONE)
 
                     case States.SENDING_ANALYTICS_NOTIF:
+                        if sub_data.deletion_requested:
+                            subscription_fsm.transition(Transitions.DELETION_REQUESTED)
                         self.send_analytics_notification(sub_data.sub_id,
                                                          EventNotification(event=NwdafEvent.UE_LOC_THROUGHPUT,
                                                                            predictedThroughputInfos=[
@@ -217,6 +248,10 @@ class ThroughputAnlfService(AnlfService):
                                                                                    throughput=f"{sub_data.pending_throughput_prediction:.2f} Mbps")]))
                         sub_data.pending_throughput_prediction = None
                         subscription_fsm.transition(Transitions.ANALYTICS_NOTIF_SENT)
+
+                    case States.DELETING:
+                        # Delete stuff
+                        self.subscription_registry.remove_subscription(sub_data.sub_id, sub_data.supi)
 
             await asyncio.sleep(tick_duration)
 

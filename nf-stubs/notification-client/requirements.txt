@@ -1,4 +1,4 @@
 nwdaf-api
-prometheus_fastapi_instrumentator==7.0.0
-fastapi==0.115.4
-uvicorn==0.32.0
+prometheus_fastapi_instrumentator~=7.1.0
+fastapi~=0.116.1
+uvicorn~=0.35.0

@@ -28,7 +28,8 @@ class States(StrEnum):
     WAITING_FOR_GMLC_NOTIF = "WAITING_FOR_GMLC_NOTIF",
     WAITING_FOR_RAN_NOTIF = "WAITING_FOR_RAN_NOTIF",
     PREDICTING_THROUGHPUT = "PREDICTING_THROUGHPUT",
-    SENDING_ANALYTICS_NOTIF = "SENDING_ANALYTICS_NOTIF"
+    SENDING_ANALYTICS_NOTIF = "SENDING_ANALYTICS_NOTIF",
+    DELETING = "DELETING"
 
 
 class Transitions(StrEnum):
@@ -46,7 +47,8 @@ class Transitions(StrEnum):
     ALL_NOTIFS_RECEIVED = "ALL_NOTIFS_RECEIVED",
     WAITING_FOR_NOTIFS = "WAITING_FOR_NOTIFS",
     PREDICTION_DONE = "PREDICTION_DONE",
-    ANALYTICS_NOTIF_SENT = "ANALYTICS_NOTIF_SENT"
+    ANALYTICS_NOTIF_SENT = "ANALYTICS_NOTIF_SENT",
+    DELETION_REQUESTED = "DELETION_REQUESTED"
 
 
 class ThroughputSubscriptionFSM(FiniteStateMachine):
@@ -64,6 +66,7 @@ class ThroughputSubscriptionFSM(FiniteStateMachine):
         - States.WAITING_FOR_RAN_NOTIF: This state is entered when the FSM is waiting for RAN notifications.
         - States.PREDICTING_THROUGHPUT: In this state, the FSM performs throughput predictions.
         - States.SENDING_ANALYTICS_NOTIF: The FSM enters this state to send analytics notifications to GMLC.
+        - States.DELETING: The FSM enters this stays when a deletion of the subscription has been requested.
 
     Transitions:
         - Transitions.INITIALIZATION_DONE: Triggers the transition from INITIALIZING to WAITING_FOR_GMLC_NOTIF.
@@ -71,27 +74,33 @@ class ThroughputSubscriptionFSM(FiniteStateMachine):
         - Transitions.WAITING_FOR_NOTIFS: Allows the FSM to wait for additional notifications if needed.
         - Transitions.PREDICTION_DONE: Transitions the FSM to the sending notifications state once the prediction is done.
         - Transitions.ANALYTICS_NOTIF_SENT: Returns the FSM to the WAITING_FOR_GMLC_NOTIF state after sending analytics notifications.
+        - Transitions.DELETION_REQUESTED: Transitions the FSM to the DELETING state when a deletion is requested.
     """
 
     def __init__(self):
         super().__init__(
             {
                 States.INITIALIZING: {
-                    Transitions.INITIALIZATION_DONE: States.WAITING_FOR_GMLC_NOTIF
+                    Transitions.INITIALIZATION_DONE: States.WAITING_FOR_GMLC_NOTIF,
+                    Transitions.DELETION_REQUESTED: States.DELETING
                 },
                 States.WAITING_FOR_GMLC_NOTIF: {
                     Transitions.ALL_NOTIFS_RECEIVED: States.PREDICTING_THROUGHPUT,
-                    Transitions.WAITING_FOR_NOTIFS: States.WAITING_FOR_RAN_NOTIF
+                    Transitions.WAITING_FOR_NOTIFS: States.WAITING_FOR_RAN_NOTIF,
+                    Transitions.DELETION_REQUESTED: States.DELETING
                 },
                 States.WAITING_FOR_RAN_NOTIF: {
                     Transitions.ALL_NOTIFS_RECEIVED: States.PREDICTING_THROUGHPUT,
-                    Transitions.WAITING_FOR_NOTIFS: States.WAITING_FOR_GMLC_NOTIF
+                    Transitions.WAITING_FOR_NOTIFS: States.WAITING_FOR_GMLC_NOTIF,
+                    Transitions.DELETION_REQUESTED: States.DELETING
                 },
                 States.PREDICTING_THROUGHPUT: {
-                    Transitions.PREDICTION_DONE: States.SENDING_ANALYTICS_NOTIF
+                    Transitions.PREDICTION_DONE: States.SENDING_ANALYTICS_NOTIF,
+                    Transitions.DELETION_REQUESTED: States.DELETING
                 },
                 States.SENDING_ANALYTICS_NOTIF: {
-                    Transitions.ANALYTICS_NOTIF_SENT: States.WAITING_FOR_GMLC_NOTIF
+                    Transitions.ANALYTICS_NOTIF_SENT: States.WAITING_FOR_GMLC_NOTIF,
+                    Transitions.DELETION_REQUESTED: States.DELETING
                 }
             },
             States.INITIALIZING

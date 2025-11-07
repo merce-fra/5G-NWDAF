@@ -14,6 +14,7 @@ from typing import Optional
 from ThroughputSubscriptionData import ThroughputSubscriptionData
 from ThroughputSubscriptionFSM import ThroughputSubscriptionFSM
 
+
 class ThroughputSubscriptionRegistry:
     def __init__(self):
         self._subscription_fsms = {}
@@ -28,6 +29,11 @@ class ThroughputSubscriptionRegistry:
 
     def get_subscription_data(self, sub_id: str, supi: str) -> Optional[ThroughputSubscriptionData]:
         return self._subscription_data_lookup.get((sub_id, supi))
+
+    def mark_for_deletion(self, sub_id: str, supi: str):
+        sub_data = self.get_subscription_data(sub_id, supi)
+        if sub_data:
+            sub_data.deletion_requested = True
 
     def remove_subscription(self, sub_id: str, supi: str):
         sub_data = self.get_subscription_data(sub_id, supi)
